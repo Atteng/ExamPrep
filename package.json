@@ -2,7 +2,8 @@
   "name": "examprep",
   "version": "1.2.0",
   "description": "Self Study App",
-  "license": "ISC",
+  "license": "UNLICENSED",
+  "private": true,
   "author": "Monster18",
   "main": "index.js",
   "scripts": {
