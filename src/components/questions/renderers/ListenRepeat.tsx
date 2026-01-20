@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
-import AudioRecorder from "@/components/audio/AudioRecorder";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
 import { uploadAudioResponse } from "@/lib/db/storage";
-import { PlayCircle, Mic } from "lucide-react";
+import { PlayCircle, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ListenRepeatProps {
@@ -14,42 +13,129 @@ interface ListenRepeatProps {
     onAnswer: (answer: string) => void;
 }
 
+type FlowState = 'initial' | 'playing' | 'waiting' | 'recording' | 'complete';
+
 export default function ListenRepeat({ question, onAnswer }: ListenRepeatProps) {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [canRecord, setCanRecord] = useState(false);
+    const [flowState, setFlowState] = useState<FlowState>('initial');
+    const [countdown, setCountdown] = useState(0);
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
-    // Extract the sentence to repeat. 
-    // Usually in question.text, or sometimes question.prompt is the instruction and text is the content.
-    // For ListenRepeat, the text IS the audio transcript.
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const streamRef = useRef<MediaStream | null>(null);
+
     const sentenceToRepeat = question.text;
+    const PREP_DELAY = 1; // 1 second delay after audio (with beep)
+    const RECORDING_TIME = 15; // 15 seconds to repeat
 
     useEffect(() => {
-        // Reset state on new question
-        setRecordedBlob(null);
-        setCanRecord(false);
-        stopSpeaking();
+        // Auto-play on mount
+        handleStartFlow();
+
+        return () => {
+            stopSpeaking();
+            stopRecording();
+        };
     }, [question.id]);
 
-    const handlePlayAudio = () => {
-        setIsPlaying(true);
+    const handleStartFlow = () => {
+        setFlowState('playing');
         speakText(sentenceToRepeat || "No text available", () => {
-            setIsPlaying(false);
-            setCanRecord(true); // Allow recording after listening
+            // Audio finished, start countdown to recording
+            setFlowState('waiting');
+            setCountdown(PREP_DELAY);
+
+            let remaining = PREP_DELAY;
+            const interval = setInterval(() => {
+                remaining--;
+                setCountdown(remaining);
+
+                if (remaining === 0) {
+                    clearInterval(interval);
+                    playBeep();
+                    setTimeout(() => startRecording(), 200); // Start after beep
+                }
+            }, 1000);
         });
     };
 
-    const handleStopRecording = async (blob: Blob, duration: number) => {
-        setRecordedBlob(blob);
+    const playBeep = () => {
+        // Simple beep using Web Audio API
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-        // Upload to Storage
-        // ID is not auth-protected in this MVP layer, we use a temp ID or 'anonymous' if needed
-        // Ideally we get userId from context/auth
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800; // 800 Hz beep
+        gainNode.gain.value = 0.3;
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1); // 100ms beep
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setRecordedBlob(blob);
+                await handleUpload(blob);
+            };
+
+            mediaRecorder.start();
+            setFlowState('recording');
+            setCountdown(RECORDING_TIME);
+
+            // Auto-stop after time limit
+            let remaining = RECORDING_TIME;
+            const interval = setInterval(() => {
+                remaining--;
+                setCountdown(remaining);
+
+                if (remaining === 0) {
+                    clearInterval(interval);
+                    stopRecording();
+                }
+            }, 1000);
+
+        } catch (error) {
+            console.error("Microphone access denied:", error);
+            alert("Microphone access is required for this task.");
+            setFlowState('initial');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    const handleUpload = async (blob: Blob) => {
+        setFlowState('complete');
+
         const url = await uploadAudioResponse(blob, 'anonymous_user', 'toefl');
 
         if (url) {
             console.log("Audio uploaded:", url);
-            onAnswer(url); // Submit URL as answer
+            onAnswer(url);
         } else {
             console.error("Upload failed");
             alert("Failed to upload audio. Please try again.");
@@ -60,43 +146,57 @@ export default function ListenRepeat({ question, onAnswer }: ListenRepeatProps) 
         <QuestionContainer question={question}>
             <div className="flex flex-col items-center justify-center space-y-8 min-h-[400px]">
 
-                {/* 1. Listen Section */}
+                {/* Status Display */}
                 <div className="text-center space-y-4">
-                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                        <PlayCircle className={cn("w-10 h-10 text-primary", isPlaying && "animate-pulse")} />
-                    </div>
+                    {flowState === 'initial' && (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                                <PlayCircle className="w-10 h-10 text-primary" />
+                            </div>
+                            <h3 className="text-xl font-medium">Preparing...</h3>
+                        </>
+                    )}
 
-                    <h3 className="text-xl font-medium">Listen to the sentence</h3>
+                    {flowState === 'playing' && (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                                <PlayCircle className="w-10 h-10 text-primary animate-pulse" />
+                            </div>
+                            <h3 className="text-xl font-medium">Listen carefully...</h3>
+                        </>
+                    )}
 
-                    <button
-                        onClick={handlePlayAudio}
-                        disabled={isPlaying}
-                        className="px-6 py-2 bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/80 disabled:opacity-50 transition-all font-medium"
-                    >
-                        {isPlaying ? "Playing..." : "Play Audio"}
-                    </button>
+                    {flowState === 'waiting' && (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-yellow-500/20 flex items-center justify-center mx-auto">
+                                <span className="text-3xl font-bold text-yellow-600">{countdown}</span>
+                            </div>
+                            <h3 className="text-xl font-medium">Get ready...</h3>
+                            <p className="text-sm text-muted-foreground">Recording will start automatically</p>
+                        </>
+                    )}
+
+                    {flowState === 'recording' && (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+                                <Mic className="w-10 h-10 text-red-500 animate-pulse" />
+                            </div>
+                            <h3 className="text-xl font-medium text-red-500">Recording...</h3>
+                            <div className="text-3xl font-bold">{countdown}s</div>
+                            <p className="text-sm text-muted-foreground">Repeat the sentence you heard</p>
+                        </>
+                    )}
+
+                    {flowState === 'complete' && (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
+                                <MicOff className="w-10 h-10 text-green-500" />
+                            </div>
+                            <h3 className="text-xl font-medium text-green-600">Complete!</h3>
+                            <p className="text-sm text-muted-foreground">Your response has been recorded</p>
+                        </>
+                    )}
                 </div>
-
-                {/* Divider */}
-                <div className="w-full max-w-sm border-t border-muted" />
-
-                {/* 2. Record Section */}
-                <div className={cn("text-center space-y-4 transition-opacity duration-500", !canRecord && "opacity-50 grayscale pointer-events-none")}>
-                    <h3 className="text-xl font-medium">Repeat the sentence</h3>
-                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                        Click record and repeat exactly what you heard. Speak clearly.
-                    </p>
-
-                    <div className="mt-4">
-                        <AudioRecorder
-                            onStop={handleStopRecording}
-                            timeLimit={20} // Short time for repeat task 
-                        />
-                    </div>
-                </div>
-
-                {/* Debug / Training Wheels: Show text if needed (Hidden for real test usually) */}
-                {/* <p className="text-xs text-muted-foreground mt-8">Debug: {sentenceToRepeat}</p> */}
             </div>
         </QuestionContainer>
     );

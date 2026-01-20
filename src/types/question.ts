@@ -39,7 +39,17 @@ export interface QuestionData {
         source?: 'ai-generated' | 'official-seed';
         estimatedTime?: number;
         originalTopic?: string; // Track the topic used for hybrid generation
+        module?: 1 | 2; // Which module this question belongs to (for adaptive testing)
+        moduleType?: 'routing' | 'easy' | 'hard'; // Module difficulty type
     };
+
+    // For multi-question tasks (Listening sets)
+    questions?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        answerKey: string;
+    }[];
 
     rubric?: ScoringRubric; // For subjective tasks (Writing/Speaking)
 }

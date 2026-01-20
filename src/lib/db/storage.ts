@@ -14,7 +14,11 @@ export async function uploadAudioResponse(blob: Blob, userId: string, examType: 
             });
 
         if (error) {
-            console.error("Upload Error:", error);
+            console.error("Upload Error Details:", {
+                message: error.message,
+                statusCode: (error as any).statusCode,
+                error: error
+            });
             throw error;
         }
 

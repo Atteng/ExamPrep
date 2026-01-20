@@ -240,11 +240,40 @@ export default function PracticePage() {
                                     </div>
                                 )}
 
+                                {selectedSection === 'listening' && (
+                                    <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <label className="text-sm font-medium">Task Type</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: "all", label: "Full Section", desc: "Mix of all tasks" },
+                                                { id: "Listen to a Conversation", label: "Conversation", desc: "Campus dialogue" },
+                                                { id: "Listen to an Announcement", label: "Announcement", desc: "Short notice" },
+                                                { id: "Listen to an Academic Talk", label: "Academic Talk", desc: "Short lecture" },
+                                            ].map((task) => (
+                                                <button
+                                                    key={task.id}
+                                                    onClick={() => setSelectedTaskType(task.id)}
+                                                    className={cn(
+                                                        "flex flex-col items-start p-3 rounded-lg border text-left text-sm transition-all hover:bg-muted",
+                                                        selectedTaskType === task.id
+                                                            ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                                                            : "bg-card text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <span className="font-semibold">{task.label}</span>
+                                                    <span className="text-xs opacity-80">{task.desc}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {selectedSection === 'speaking' && (
                                     <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                         <label className="text-sm font-medium">Task Type</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {[
+                                                { id: "all", label: "Full Section", desc: "7-8 Repeat + 4 Interview" },
                                                 { id: "Listen and Repeat", label: "Listen & Repeat", desc: "Repeat sentences" },
                                                 { id: "Take an Interview", label: "Interview", desc: "Answer questions" },
                                             ].map((task) => (
@@ -293,21 +322,46 @@ export default function PracticePage() {
                         <TestEngine
                             questions={questions}
                             timeLimit={(() => {
-                                // Dynamic Time Calculation
-                                if (practiceMode === 'full') return 36 * 60; // 36 mins for Full Section (approx 20 qs)
+                                // Official TOEFL iBT Section Times
+                                if (practiceMode === 'full') {
+                                    // Full test mode - use total time (90 mins)
+                                    return 90 * 60;
+                                }
 
-                                // Section Drill logic
+                                // Section Drill - Official Times for "Full Section"
+                                if (selectedTaskType === 'all') {
+                                    switch (selectedSection) {
+                                        case 'reading':
+                                            return 27 * 60; // 27 minutes (35-48 items)
+                                        case 'listening':
+                                            return 27 * 60; // 27 minutes (35-45 items)
+                                        case 'speaking':
+                                            return 8 * 60;  // 8 minutes (11 items)
+                                        case 'writing':
+                                            return 23 * 60; // 23 minutes (12 items)
+                                        default:
+                                            return 20 * 60;
+                                    }
+                                }
+
+                                // Individual Task Type Times (proportional estimates)
                                 switch (selectedTaskType) {
                                     case 'Read an Academic Passage':
-                                        return 10 * 60; // 10 mins (1 passage, 5 qs)
+                                        return 5 * 60;  // ~5 mins per passage
                                     case 'Read in Daily Life':
-                                        return 8 * 60;  // 8 mins (4 tasks, ~8 qs)
+                                        return 3 * 60;  // ~3 mins per text
                                     case 'Complete The Words':
-                                        return 6 * 60;  // 6 mins (2 passages)
+                                        return 3 * 60;  // ~3 mins per passage
+                                    case 'Listen to a Conversation':
+                                        return 3 * 60;  // ~3 mins (audio + questions)
+                                    case 'Listen to an Announcement':
+                                        return 3 * 60;  // ~3 mins
+                                    case 'Listen to an Academic Talk':
+                                        return 4 * 60;  // ~4 mins
                                     case 'Listen and Repeat':
-                                        return 5 * 60;  // 5 mins (7 sentences)
+                                        return 2 * 60;  // ~2 mins (7 sentences)
                                     case 'Take an Interview':
-                                        return 10 * 60; // 10 mins (Intro + 4 Qs)
+                                        return 5 * 60;  // ~5 mins (4 questions × 45s + intro)
                                     default:
                                         return 20 * 60; // Default fallback
                                 }
@@ -315,6 +369,8 @@ export default function PracticePage() {
                             title={practiceMode === 'full'
                                 ? `Full ${selectedExam.toUpperCase()} Mock Test`
                                 : `${selectedExam.toUpperCase()} ${selectedSection.charAt(0).toUpperCase() + selectedSection.slice(1)} Drill`}
+                            examType={selectedExam}
+                            section={selectedSection}
                             onExit={handleExit}
                             onComplete={async (results) => {
                                 console.log("Grading and saving results...", results);

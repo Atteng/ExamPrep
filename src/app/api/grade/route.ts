@@ -63,7 +63,15 @@ export async function POST(req: Request) {
         // 2. Subjective Grading (Writing / Speaking) via AI
         let rubricId = 'toefl-writing-academic';
         if (section === 'speaking') {
-            rubricId = taskType.includes('Interview') ? 'toefl-speaking-interview' : 'toefl-speaking-independent';
+            if (taskType.includes('Repeat') || taskType === 'Listen and Repeat') {
+                rubricId = 'toefl-speaking-repeat';
+            } else if (taskType.includes('Interview') || taskType === 'Take an Interview') {
+                rubricId = 'toefl-speaking-interview';
+            }
+        } else if (section === 'writing') {
+            if (taskType.includes('Email')) {
+                rubricId = 'toefl-writing-email';
+            }
         }
 
         const rubric = RUBRICS[rubricId] || RUBRICS['toefl-writing-academic'];
@@ -73,27 +81,29 @@ export async function POST(req: Request) {
         let promptParts: (string | Part)[] = [];
 
         const textPrompt = `
-        You are an expert TOEFL/GRE grader. Grade this student response.
+        You are an expert TOEFL grader. Grade this student response using the OFFICIAL TOEFL rubric.
         
         Task Type: ${taskType}
         Question Prompt: "${question.prompt}"
-        ${question.text ? `Context involved (e.g. text read or question asked): "${question.text.substring(0, 300)}..."` : ''}
+        ${question.text ? `Context: "${question.text.substring(0, 300)}..."` : ''}
 
-        Rubric (${rubric.id}):
+        OFFICIAL RUBRIC (${rubric.id}) - Scale: ${rubric.scale}:
         ${JSON.stringify(rubric.criteria, null, 2)}
 
         Focus Areas: ${rubric.focusAreas.join(', ')}
 
-        INSTRUCTIONS:
-        1. Assign a score based strictly on the rubric (Scale usually 0-4 or 0-5).
-        2. Provide specific, constructive feedback (max 2 sentences).
-        3. Identify 1 specific strength and 1 weakness.
-        ${isAudio ? '4. Evaluate Pronunciation, Intonation, and Fluency specifically.' : ''}
+        CRITICAL INSTRUCTIONS:
+        1. Assign a score STRICTLY based on the rubric scale (${rubric.scale}).
+        2. For Listen & Repeat (0-5): Focus on exact word matching and intelligibility.
+        3. For Interview (1-5): Evaluate all 4 dimensions (Content, Fluency, Pronunciation, Grammar).
+        4. Provide specific, constructive feedback (max 2 sentences).
+        5. Identify 1 strength and 1 weakness.
+        ${isAudio ? '6. For audio: Evaluate pronunciation, intonation, fluency, and rhythm.' : ''}
         
         OUTPUT FORMAT (JSON):
         {
-          "score": number,
-          "maxScore": number,
+          "score": number (must be within ${rubric.scale}),
+          "maxScore": number (max value of ${rubric.scale}),
           "feedback": "string",
           "strength": "string",
           "weakness": "string"

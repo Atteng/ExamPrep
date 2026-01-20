@@ -13,6 +13,9 @@ import CompleteTheWords from "@/components/questions/renderers/CompleteTheWords"
 import ReadAcademic from "@/components/questions/renderers/ReadAcademic";
 import ListenRepeat from "@/components/questions/renderers/ListenRepeat";
 import TakeInterview from "@/components/questions/renderers/TakeInterview";
+import ListenConversation from "@/components/questions/renderers/ListenConversation";
+import ListenAnnouncement from "@/components/questions/renderers/ListenAnnouncement";
+import ListenAcademicTalk from "@/components/questions/renderers/ListenAcademicTalk";
 
 interface TestEngineProps {
     questions: QuestionData[];
@@ -20,9 +23,11 @@ interface TestEngineProps {
     title: string;
     onExit: () => void;
     onComplete?: (results: any) => void;
+    examType?: string; // e.g., 'toefl'
+    section?: string; // e.g., 'reading', 'listening', 'speaking'
 }
 
-export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: TestEngineProps) {
+export function TestEngine({ questions, timeLimit, title, onExit, onComplete, examType, section }: TestEngineProps) {
     const {
         currentIndex,
         currentQuestion,
@@ -30,6 +35,9 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: 
         timeLeft,
         isCompleted,
         currentAnswer,
+        currentModule,
+        isLoadingModule2,
+        canGoBack,
         submitAnswer,
         nextQuestion,
         prevQuestion,
@@ -37,6 +45,8 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: 
     } = useTestSession({
         questions,
         timeLimit,
+        examType,
+        section,
         onComplete: (results) => {
             console.log("Test Completed", results);
             if (onComplete) onComplete(results);
@@ -124,6 +134,34 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: 
                     />
                 );
 
+            // --- LISTENING ---
+            case 'Listen to a Conversation':
+            case 'listening_conversation':
+                return (
+                    <ListenConversation
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
+            case 'Listen to an Announcement':
+            case 'listening_announcement':
+                return (
+                    <ListenAnnouncement
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
+            case 'Listen to an Academic Talk':
+            case 'listening_academic_talk':
+                return (
+                    <ListenAcademicTalk
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
             // Fallback: Use ReadDailyLife for unknown reading types
             default:
                 console.warn(`No renderer found for taskType: ${taskType}, using ReadDailyLife`);
@@ -148,10 +186,23 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: 
                 </div>
 
                 <div className="flex items-center space-x-3 text-sm font-variant-numeric tabular-nums">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className={cn(timeLeft < 60 && "text-red-500 font-bold")}>
+                    <Clock className={cn(
+                        "w-5 h-5",
+                        timeLeft < 300 ? "text-red-500" : timeLeft < 600 ? "text-yellow-500" : "text-muted-foreground"
+                    )} />
+                    <span className={cn(
+                        "text-lg font-bold",
+                        timeLeft < 300 && "text-red-500 animate-pulse",
+                        timeLeft >= 300 && timeLeft < 600 && "text-yellow-600",
+                        timeLeft >= 600 && "text-foreground"
+                    )}>
                         {formatTime(timeLeft)}
                     </span>
+                    {timeLeft < 300 && (
+                        <span className="text-xs text-red-500 font-medium">
+                            {timeLeft < 60 ? "FINAL MINUTE!" : "< 5 MIN"}
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -165,14 +216,24 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete }: 
 
             {/* Active Question Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
-                {renderQuestion()}
+                {isLoadingModule2 ? (
+                    <div className="flex flex-col items-center justify-center h-full space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                        <div className="text-center">
+                            <h3 className="text-lg font-semibold mb-2">Module 1 Complete!</h3>
+                            <p className="text-sm text-muted-foreground">Loading Module {currentModule}...</p>
+                        </div>
+                    </div>
+                ) : (
+                    renderQuestion()
+                )}
             </div>
 
             {/* Footer / Controls */}
             <div className="flex items-center justify-between px-4 py-4 border-t bg-background">
                 <button
                     onClick={prevQuestion}
-                    disabled={currentIndex === 0}
+                    disabled={!canGoBack || section === 'listening' || section === 'speaking'}
                     className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <ChevronLeft className="w-4 h-4 mr-1" />

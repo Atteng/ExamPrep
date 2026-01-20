@@ -240,7 +240,62 @@ export async function generateQuestions(
         }
     }
 
-    // --- STRATEGY C: STANDARD AI GENERATION ---
+    // --- STRATEGY C: LISTENING (Multi-Question Sets) ---
+    if (section === 'listening') {
+        const difficulty = 'medium'; // Could differ by user level
+        const numQuestions = taskType.includes('Academic') ? 4 : 3;
+
+        const listeningPrompt = `
+        TASK:
+        Generate ${count} Listening Passage(s) for task type: "${taskType}".
+        Topic: ${topic}
+        Level: ${level}
+
+        REQUIREMENTS:
+        1. Context: ${taskType.includes('Conversation') ? 'A dialogue between two students or student/professor (Female/Male voices).' : 'A monologue (Announcement or Lecture).'}
+        2. Content: Authentic academic/campus scenario.
+        3. Questions: Generate ${numQuestions} multiple-choice questions per passage.
+        4. Transcripts:
+           - Conversation: Use "Woman:" and "Man:" labels.
+           - Announcement/Talk: Just paragraph text.
+
+        JSON OUTPUT FORMAT (Array of Objects):
+        [{
+          "id": "uuid",
+          "examType": "${examType}",
+          "section": "listening",
+          "taskType": "${taskType}",
+          "prompt": "Listen to the audio and answer the questions.", 
+          "text": "Full transcript here...",
+          "questions": [
+             { 
+               "id": "q1", 
+               "prompt": "What are they discussing?", 
+               "options": ["A", "B", "C", "D"], 
+               "answerKey": "The correct option text" 
+             }
+          ]
+        }]
+        `;
+
+        try {
+            const result = await generateWithRetry(async () => await model.generateContent(listeningPrompt));
+            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(raw) as QuestionData[];
+
+            return parsed.map(q => ({
+                ...q,
+                id: crypto.randomUUID(),
+                metadata: { source: 'ai-generated', difficulty, originalTopic: topic }
+            }));
+
+        } catch (e) {
+            console.error("Listening Generation Failed:", e);
+            throw new Error("Failed to generate listening set");
+        }
+    }
+
+    // --- STRATEGY D: STANDARD AI GENERATION (Legacy) ---
     let promptTemplate = "";
 
     switch (examType.toLowerCase()) {
