@@ -1,0 +1,485 @@
+{
+    "metadata": {
+        "source": "Updated TOEFL iBT Test Overview",
+        "description": "Comprehensive reference data extracted from official guide text."
+    },
+    "reading": {
+        "description": "The Reading section measures the ability to process written texts for meaning and form.",
+        "task_types": [
+            {
+                "name": "Complete The Words",
+                "details": "The Complete the Words task assesses the ability to process written texts for meaning and form. It presents test takers with paragraph-length (about 70–100 words) academic texts. Following an intact first sentence, the second half of every second word is deleted, and the examinee must provide the missing letters. Each text contains 10 words with missing letters.",
+                "example": {
+                    "text": "We know from drawings that have been preserved in caves for over 10,000 years that early humans performed dances as a group activity. We mi_ _ _ think th_ _ prehistoric peo_ _ _ concentrated on_ _ on ba_ _ _ survival. How_ _ _ _, it i_ clear fr_ _ the rec_ _ _ that dan_ _ _ _ was important to them. They recorded more drawings of dances than any other group activity. Dances served various purposes, including ritualistic communication with the divine, storytelling, and social cohesion.",
+                    "answer_key": [
+                        "ght",
+                        "at",
+                        "ple",
+                        "ly",
+                        "sic",
+                        "ever",
+                        "s",
+                        "om",
+                        "ord",
+                        "cing"
+                    ]
+                }
+            },
+            {
+                "name": "Read in Daily Life",
+                "details": "The Read in Daily Life task includes short, nonacademic texts commonly encountered in daily life around the world. Examples of texts include: (1) a poster, sign, or notice (2) a menu (3) a social media post or web page (4) schedule (5) an email (6) a chain of text messages (7) an advertisement (8) a news article (9) a form (10) an invoice (11) and a receipt. The texts can be anywhere from about 15 to 150 words long, and they are followed by two or three multiple-choice questions depending on the length of the text.",
+                "skills_tested": [
+                    "understand information in common, nonlinear text formats",
+                    "identify the main purpose of a written communication",
+                    "make inferences based on text",
+                    "understand informal language, including common idiomatic expressions",
+                    "understand telegraphic language",
+                    "skim and scan for information"
+                ],
+                "example": {
+                    "text": "Municipal Charter\nSign up for paperless billing statements today.\nSafe, convenient, easy. Enroll in paperless billing to receive monthly savings account statements in an electronic PDF document. Access your Municipal Charter account through the mobile app and select account preferences in the upper right-hand corner to enroll.",
+                    "question": "What type of business issued the notice?",
+                    "options": [
+                        "A. An Internet provider",
+                        "B. A computer company",
+                        "C. A paper company",
+                        "D. A bank"
+                    ],
+                    "answer_key": "D"
+                }
+            },
+            {
+                "name": "Read an Academic Passage",
+                "details": "The Read an Academic Passage task includes short expository passages typical of those in secondary and higher education. The task is designed so that background knowledge is not required. The passages cover topics drawn from subject areas such as history, art and music, business and economics, life science, physical science, and social science. The texts are approximately 200 words long and are followed by five questions.",
+                "skills_tested": [
+                    "identify the main ideas and basic context of a short, linear text",
+                    "understand the important details in a short text",
+                    "understand the range of grammatical structures used by academic writers",
+                    "infer meaning from information that is not explicitly stated",
+                    "understand a broad range of academic vocabulary",
+                    "understand a range of figurative and idiomatic expressions",
+                    "understand ideas expressed with grammatical complexity",
+                    "understand the relationship between ideas across sentences and paragraphs",
+                    "recognize the rhetorical structure of all or part of a written text"
+                ],
+                "example": {
+                    "title": "The Mirror Test",
+                    "text": "Very young children cannot recognize themselves in a mirror; they usually achieve this milestone around 18 months of age. The ability to recognize oneself in the mirror is considered to be a key component of self-awareness and consciousness for humans. But what about animals? For many years, scientists have known that members of the great ape family could recognize themselves in mirrors. They measured this by the “mirror test,” which involved putting a colored mark on an ape’s body, and then showing the ape its reflection in a mirror. If the ape tried to remove the mark on its own body, the scientists knew that the ape was recognizing its reflection. Apes are close relatives of humans, but in recent years, scientists have discovered that other animals also pass the “mirror test.” Elephants and dolphins have shown signs of self-recognition. These, like apes, are highly intelligent animals. But in a more recent experiment, a type of fish called the cleaner fish tried to scrape a mark off its body when it saw itself in the mirror. This suggests that even less intelligent animals may possess more self-awareness than previously suspected.",
+                    "question": "Why did scientists put colored marks on animals’ bodies?",
+                    "options": [
+                        "It made it possible to track the animals’ movements.",
+                        "It helped them determine whether the animals recognized themselves.",
+                        "It made it easier to tell the animals apart.",
+                        "It showed whether some animals can detect color differences."
+                    ],
+                    "answer_key": "It helped them determine whether the animals recognized themselves."
+                }
+            }
+        ]
+    },
+    "listening": {
+        "description": "The questions in the listening section measure the test taker’s ability to understand conversations and talks set in academic and campus life contexts. The speakers in the tasks have accents from four regions of the world: North America, the United Kingdom, Australia, and New Zealand.",
+        "task_types": [
+            {
+                "name": "Listen and Choose a Response",
+                "details": "The Listen and Choose a Response task is designed to measure the test taker’s ability to understand a short, spoken question or statement and recognize an appropriate response in short dialogues on topics related to campus life. Selecting the appropriate response requires understanding both the literal and implied meaning of the speaker.",
+                "skills_tested": [
+                    "understand common vocabulary and formulaic phrases",
+                    "understand simple grammatical structures, including question-formation patterns",
+                    "recognize socially appropriate responses in short spoken exchanges",
+                    "recognize and distinguish English phonemes and the use of common intonation",
+                    "stress patterns to convey meaning in carefully articulated speech",
+                    "infer implied meaning, speaker role, or context in short spoken exchanges"
+                ],
+                "example": {
+                    "audio_transcript": "Didn’t I just see you in the library an hour ago?",
+                    "prompt": "Choose the best response.",
+                    "options": [
+                        "A. As a matter of fact, I was returning a book.",
+                        "B. Yes, you can find it in the reference section.",
+                        "C. I don’t think I’ll have enough time to do that.",
+                        "D. Actually, I think I can get there a little earlier."
+                    ],
+                    "answer_key": "A"
+                }
+            },
+            {
+                "name": "Listen to a Conversation",
+                "details": "The Listen to a Conversation task is designed to measure the ability to comprehend a conversation in modern academic situations. This ability involves more than just recognizing the spoken words; listeners must be able to make inferences, recognize speaker roles and purposes, and make predictions.",
+                "skills_tested": [
+                    "identify the main ideas and basic context of a conversation",
+                    "understand the important details in a conversation",
+                    "understand the range of grammatical structures used by proficient speakers",
+                    "understand a wide range of vocabulary including idiomatic and colloquial expressions",
+                    "infer meaning from information that is not explicitly stated",
+                    "recognize the purpose of a speaker’s utterance",
+                    "make simple predictions about the speakers’ future actions",
+                    "follow the connection between ideas across speaker turns"
+                ],
+                "example": {
+                    "narrator": "Listen to a conversation.",
+                    "transcript": "Woman: Need anything from the supermarket?\nMan: Huh? Aren’t we getting ready to go see that play in a few minutes?\nWoman: That’s tomorrow.\nMan: Oh. Wow, I’d forget my head if it wasn’t screwed on . . . Guess I don’t need to change my clothes after all.\nWoman: So, you weren’t planning to prepare dinner?\nMan: No, but I can. What do you want?\nWoman: Just something light and healthy. So, can you go shopping instead?\nMan: Yeah, sure. How about salmon and salad? Want anything else?\nWoman: No, that’s good. Thanks!",
+                    "question": "What does the woman imply that she was about to do?",
+                    "options": [
+                        "A. See a play",
+                        "B. Change her clothes",
+                        "C. Go shopping",
+                        "D. Eat dinner"
+                    ],
+                    "answer_key": "C"
+                }
+            },
+            {
+                "name": "Listen to an Announcement",
+                "details": "The Listen to an Announcement task is designed to simulate what a listener would hear either during an in-person or a broadcasted message in an academic context. The test taker listens to a short academic-related announcement (about 40–85 words) and then answers questions about it.",
+                "skills_tested": [
+                    "identify the main ideas and basic context of a short message",
+                    "understand the important details in a short message",
+                    "understand the range of grammatical structures used by proficient speakers",
+                    "understand a wide range of vocabulary including idiomatic and colloquial expressions",
+                    "infer meaning from information that is not explicitly stated",
+                    "predict future actions based on what a speaker has said",
+                    "recognize the purpose of a speaker’s message"
+                ],
+                "example": {
+                    "narrator": "Listen to an announcement in a classroom.",
+                    "transcript": "Man: Good afternoon, everyone. I am excited to inform you that Dr. Cynthia Palmer, a renowned expert in environmental science, will be giving a guest lecture next Monday at 2 P.M. in Waldman Auditorium. Dr. Palmer will discuss the latest advancements in sustainable energy solutions and their impact on global climate change. Due to her popularity and the high interest in her work, I highly recommend arriving early to secure a seat.",
+                    "question": "What is the announcement about?",
+                    "options": [
+                        "A. A guest lecture",
+                        "B. A different location for a class",
+                        "C. Requirements for a class",
+                        "D. A new university science course"
+                    ],
+                    "answer_key": "A"
+                }
+            },
+            {
+                "name": "Listen to an Academic Talk",
+                "details": "The Listen to an Academic Talk task is designed to simulate academic talks given by educators. The test taker listens to a short (about 100–250 words) academic-related talk and answers four questions about it.",
+                "skills_tested": [
+                    "understand the main and supporting ideas of a short academic talk",
+                    "understand a range of grammatical structures",
+                    "make inferences based on what is said",
+                    "recognize the organizational features of the talk",
+                    "understand vocabulary that is sometimes uncommon, colloquial, or idiomatic"
+                ],
+                "example": {
+                    "narrator": "Listen to a talk on a podcast about psychology.",
+                    "transcript": "Woman: Did you see that new thriller movie that came out last week? I did and loved it. The action, the plot twists . . . I was totally captivated. Time just flew by. Not a single thought occurred to me that was unrelated to the movie. What I experienced is what psychologists call hard fascination. Hard fascination means intense focus and concentration. Whether it’s TV programs, video games . . . hard fascination is all too easy to come by in this modern world.\n\nThere’s another type of fascination—soft fascination. There’s still effortless attention, meaning that no special effort is required for you to stay focused, but there’s still room for other thoughts. When I take a walk in the park and look at the flowers and trees, for example, I might be thinking in the back of my mind about my dinner plans.\n\nNow, one thing to know is hard fascination causes mental fatigue. The mind is so intensely focused that it gets tired fast. What follows mental fatigue? You might find yourself easily distracted, irritable, and stressed. Soft fascination, in contrast, engages a different part of the brain—the DMN, or Default Mode Network, which soothes the mind and helps combat mental fatigue. So next time you feel like your mind is on overload, turn off the TV, put down your phone. Take a walk, or simply sit and stare at the clouds.",
+                    "question": "Why does the speaker mention a movie?",
+                    "options": [
+                        "A. To compare different types of movies",
+                        "B. To introduce a concept in psychology",
+                        "C. To explain how movies affect emotions",
+                        "D. To encourage listeners to watch more movies"
+                    ],
+                    "answer_key": "B"
+                }
+            }
+        ]
+    },
+    "writing": {
+        "description": "Writing skills are measured with the following task types: Build a Sentence, Write an Email, and Write for an Academic Discussion.",
+        "task_types": [
+            {
+                "name": "Build a Sentence",
+                "details": "In the Build a Sentence task, test takers see one intact sentence followed by another sentence with words or phrases in the wrong order. The two sentences form an exchange between speakers. Test takers move the words and phrases to form a grammatical sentence that is an appropriate reply in the context.",
+                "skills_tested": [
+                    "measure command of sentence structures, a skill essential for communication"
+                ],
+                "example": {
+                    "prompt": "Make an appropriate sentence.",
+                    "context": "What was the highlight of your trip?",
+                    "scrambled_parts": [
+                        "were",
+                        "the",
+                        "was",
+                        "old city",
+                        "showed us around",
+                        "who",
+                        "tour guides"
+                    ],
+                    "target_sentence": "The tour guides who showed us around the old city were fantastic."
+                }
+            },
+            {
+                "name": "Write an Email",
+                "details": "In the Write an Email task, test takers are presented with a scenario in text regarding either an academic or social setting. Test takers are asked to share information in writing for a specific communicative purpose—for example, making a recommendation, extending an invitation, or proposing a solution to a problem. Test takers have 7 minutes to complete this task.",
+                "skills_tested": [
+                    "achieve the designated communicative goal, following basic social conventions",
+                    "be adequately elaborated, clear, and cohesive",
+                    "make accurate and appropriate use of a range of grammatical structures and vocabulary",
+                    "follow the mechanical conventions of English (spelling, punctuation, and capitalization)"
+                ],
+                "example": {
+                    "scenario": "A new poetry magazine has asked its readers for submissions, and you decided to submit two of your poems. However, you had a problem using the online submission form, and you are not certain that your submissions were received.",
+                    "task": "Write an email to the editor of the magazine. In your email, tell the editor what you like about the new magazine, describe the problem you experienced, and ask about the status of your submissions.",
+                    "recipient": "editor@sunshinepoetrymagazine.com",
+                    "subject": "Problem using submission form",
+                    "sample_response": "Hi Editor,\n\nI hope you are well! I wanted to say that I really love the new Sunshine Poetry Magazine. It's refreshing to see such a diverse range of voices, and the layout is very engageing. However, I had some trouble with online submission form when I tried to submit two of my poems. After I uploaded the files and hit submit, the page just kept loading and loading, and eventually, I wasn't sure if my poems can sucessfully sent. Could you please confirm if you recieved my submissions? I'm really excited to be a part of your magazine and would appreciate any help you can provide to fix this issue. Looking forward to your response.\n\nBest regards."
+                }
+            },
+            {
+                "name": "Write for an Academic Discussion",
+                "details": "In the Write for an Academic Discussion task, test takers are asked to state and support an opinion within the context of an online class discussion forum. A post from the professor briefly frames the topic and poses an opinion question related to the topic for the class to discuss. Brief posts from two students then provide different positions on the issue. The test takers contribute their own position on the question, supporting their opinion with their own reasoning, experiences, or knowledge. They have 10 minutes to complete this task.",
+                "skills_tested": [
+                    "clearly elaborate an argument for a position, responding to arguments and/or using information provided",
+                    "be adequately supported, clear, and cohesive",
+                    "make accurate and appropriate use of a range of grammatical structures and vocabulary",
+                    "follow the mechanical conventions of English"
+                ],
+                "example": {
+                    "professor_post": "Volunteerism refers to the act of offering your time and service without financial compensation to benefit a community, organization, or cause. While many people volunteer mainly to help others, some institutions have mandatory volunteer programs. High schools are one example, where students may be required to complete a certain number of volunteer hours to graduate. What do you think? Should high school students be required to do volunteer work? Why or why not?",
+                    "student_posts": [
+                        {
+                            "name": "Student 1",
+                            "content": "Yes, I think high schools should require volunteer hours because it helps students build a sense of civic responsibility. Many teenagers don’t naturally think about helping others, and this requirement can introduce them to the idea that their time and effort can make a real difference in the lives of others."
+                        },
+                        {
+                            "name": "Student 2",
+                            "content": "I don’t think volunteer hours should be required because many students already have limited free time. Some have part-time jobs or take care of younger siblings after school. Adding a mandatory volunteer requirement could create extra stress and make it harder for those students to balance their existing responsibilities."
+                        }
+                    ],
+                    "sample_response": "While I get Andrew's point about limited free time, I think it’s good to have mandatory volunteer hours at high schools. Volunteering teaches students empathy and community service, helping them grow into responsible adults. Schools can give flexible options that fit student’s schedules, like weekend or summer volunteering. What’s more, volunteering can be a break from academic pressure, allowing students to engage in meaningful activities outside school. For example, helping at a comunity garden is both fulfilling and educational."
+                }
+            }
+        ]
+    },
+    "speaking": {
+        "description": "The tasks in the speaking section measure both foundational language skills as well as the ability to communicate. Foundational skills, such as the ability to process language and produce fluent and intelligible speech, are measured when test takers reproduce spoken input. Communicative ability is measured when test takers speak about their opinions and experiences.",
+        "task_types": [
+            {
+                "name": "Listen and Repeat",
+                "details": "The Listen and Repeat task measures the test taker’s ability to process the sentences they hear and then to accurately and intelligibly reproduce these sentences. In the Listen and Repeat task, test takers repeat seven sentences within a scenario in an academic or campus life setting.",
+                "skills_tested": [
+                    "accurate repetition",
+                    "clearly intelligible"
+                ],
+                "example": {
+                    "narrator": "You are learning to welcome visitors to the zoo. Listen to your manager and repeat what she says.",
+                    "sentences": [
+                        "We have a variety of wildlife.",
+                        "Bears, wolves, and large cats are to the right.",
+                        "You can find sea lions and elephants further down the path.",
+                        "Please, no outside food or drinks, and do not feed the animals.",
+                        "Avoid banging or tapping on the displays and enclosures.",
+                        "For those with children, we offer summer camps and educational opportunities.",
+                        "The visitor’s center, located near the front entrance, can give you more information."
+                    ]
+                }
+            },
+            {
+                "name": "Take an Interview",
+                "details": "In the Take an Interview task, test takers participate in a simulated conversation with a prerecorded interviewer. The interview takes place during a variety of situations. During the interview, test takers answer four questions related to the interview topic. They have 45 seconds to answer each question.",
+                "skills_tested": [
+                    "answer the question with appropriate and coherent elaboration",
+                    "maintain a good conversational speaking pace",
+                    "be intelligible and make good use of rhythm and intonation",
+                    "make effective and accurate use of a range of vocabulary and grammatical structures"
+                ],
+                "example": {
+                    "scenario": "You have agreed to take part in a research study about urban life. You will have a short online interview with a researcher.",
+                    "questions": [
+                        "Think back to the last time you visited a city in your country—a city that you didn’t live in. Why did you travel to that city? What did you like about that city?",
+                        "Some people find cities dynamic and exciting. Others find that cities are overwhelming and drain them of energy. What kind of reaction do you have to cities? Why do you think you react in this way?",
+                        "Do you agree that people who live in cities lead more interesting lives? Why or why not?",
+                        "Do you think that city governments should create more parks in urban areas to promote a general sense of happiness and life satisfaction? Why or why not?"
+                    ]
+                }
+            }
+        ]
+    },
+    "scoring_guidelines": {
+        "band_scale_description": "Performance on each of the four sections and the overall test are reported in the form of band scores from 1 to 6, in increments of 0.5. The overall test score is derived by averaging the individual section band scores.",
+        "raw_score_ranges": {
+            "reading": {
+                "raw": "0-30",
+                "band": "1-6"
+            },
+            "listening": {
+                "raw": "0-30",
+                "band": "1-6"
+            },
+            "writing": {
+                "raw": "0-20",
+                "band": "1-6"
+            },
+            "speaking": {
+                "raw": "0-55",
+                "band": "1-6"
+            }
+        },
+        "cefr_mapping": {
+            "C2": {
+                "score": "6"
+            },
+            "C1": {
+                "score": "5-5.5"
+            },
+            "B2": {
+                "score": "4-4.5"
+            },
+            "B1": {
+                "score": "3-3.5"
+            },
+            "A2": {
+                "score": "2-2.5"
+            },
+            "A1": {
+                "score": "1-1.5"
+            }
+        }
+    },
+    "rubrics": {
+        "write_email": {
+            "5": {
+                "description": "Fully successful response. Effective, clearly expressed, consistent facility in language use.",
+                "criteria": [
+                    "Elaboration effectively supports the communicative purpose",
+                    "Effective syntactic variety and precise, idiomatic word choice",
+                    "Consistent use of appropriate social conventions",
+                    "Almost no lexical or grammatical errors"
+                ]
+            },
+            "4": {
+                "description": "Generally successful response. Mostly effective and easily understood, adequate language facility.",
+                "criteria": [
+                    "Adequate elaboration to support communicative purpose",
+                    "Syntactic variety and appropriate word choice",
+                    "Mostly appropriate social conventions",
+                    "Few lexical or grammatical errors"
+                ]
+            },
+            "3": {
+                "description": "Partially successful response. Generally accomplishes task, language limitations may prevent full clarity.",
+                "criteria": [
+                    "Elaboration partially supports communicative purpose",
+                    "Moderate range of syntax and vocabulary",
+                    "Some noticeable errors in structure, word forms, idioms, social conventions"
+                ]
+            },
+            "2": {
+                "description": "Mostly unsuccessful response. Attempt to address task is mostly ineffective.",
+                "criteria": [
+                    "Limited or irrelevant elaboration",
+                    "Some connected sentence-level language, limit range",
+                    "Accumulation of errors in sentence structure/language use"
+                ]
+            },
+            "1": {
+                "description": "Unsuccessful response. Ineffective attempt, message may be unintelligible.",
+                "criteria": [
+                    "Very little elaboration",
+                    "Telegraphic language, limited vocabulary",
+                    "Serious and frequent errors"
+                ]
+            },
+            "0": {
+                "description": "No response, blank, not in English, or unconnected."
+            }
+        },
+        "write_academic_discussion": {
+            "5": {
+                "description": "Fully successful response. Relevant, very clearly expressed contribution.",
+                "criteria": [
+                    "Relevant and well-elaborated explanations/exemplifications",
+                    "Effective use of syntactic variety and precise word choice",
+                    "Almost no errors"
+                ]
+            },
+            "4": {
+                "description": "Generally successful response. Relevant contribution, easily understood.",
+                "criteria": [
+                    "Relevant and adequately elaborated details",
+                    "Variety of syntactic structures and appropriate word choice",
+                    "Few lexical or grammatical errors"
+                ]
+            },
+            "3": {
+                "description": "Partially successful response. Mostly relevant/understandable, some language facility.",
+                "criteria": [
+                    "Elaboration may be missing parts or unclear",
+                    "Some variety in syntax/vocabulary",
+                    "Some noticeable errors"
+                ]
+            },
+            "2": {
+                "description": "Mostly unsuccessful response. Attempt to contribute, language limits understanding.",
+                "criteria": [
+                    "Ideas poorly elaborated or only partially relevant",
+                    "Limited range of syntax/vocabulary",
+                    "Accumulation of errors"
+                ]
+            },
+            "1": {
+                "description": "Unsuccessful response. Ineffective attempt.",
+                "criteria": [
+                    "Few coherent ideas",
+                    "Severely limited range",
+                    "Serious/frequent errors"
+                ]
+            }
+        },
+        "speaking_listen_repeat": {
+            "5": {
+                "description": "Exact repetition. Fully intelligible."
+            },
+            "4": {
+                "description": "Captures meaning, not exact. Minor changes, 1-2 words missing."
+            },
+            "3": {
+                "description": "Essentially full, inaccurate meaning. Majority of content present but errors."
+            },
+            "2": {
+                "description": "Missing significant part. Large portion missing or highly inaccurate."
+            },
+            "1": {
+                "description": "Captures very little. Minimal response, mostly unintelligible."
+            },
+            "0": {
+                "description": "No response or entirely unintelligible."
+            }
+        },
+        "speaking_interview": {
+            "5": {
+                "criteria": [
+                    "On topic, well elaborated",
+                    "Good pace, natural pauses",
+                    "Easily intelligible pronunciation",
+                    "Accurate grammar/vocabulary"
+                ]
+            },
+            "4": {
+                "criteria": [
+                    "On topic, elaborated",
+                    "Good pace generally",
+                    "Intelligible generally",
+                    "Adequate grammar/vocabulary"
+                ]
+            },
+            "3": {
+                "criteria": [
+                    "Generally on topic, limited elaboration",
+                    "Choppy pace, frequent fillers",
+                    "Intelligibility sometimes affected",
+                    "Limited range restricts clarity"
+                ]
+            },
+            "2": {
+                "criteria": [
+                    "Minimally connected, little elaboration",
+                    "Limited intelligibility",
+                    "Very limited grammar/vocabulary"
+                ]
+            },
+            "1": {
+                "criteria": [
+                    "Vaguely connected",
+                    "Mostly unintelligible",
+                    "Isolated words"
+                ]
+            }
+        }
+    }
+}
