@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-import DashboardLayout from "@/components/layout/DashboardLayout";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 export const metadata: Metadata = {
   title: "ExamPrep",
@@ -15,7 +16,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-background text-foreground">
-        <DashboardLayout>{children}</DashboardLayout>
+        <AuthGuard>{children}</AuthGuard>
+        <Analytics />
       </body>
     </html>
   );
