@@ -7,9 +7,19 @@ export async function POST(req: Request) {
     try {
         const { examType, section, taskType, question, userAnswer } = await req.json();
 
-        // 1. Objective Grading (Multiple Choice / Fill Blank)
-        // 1. Objective Grading (Multiple Choice / Fill Blank)
-        if (['reading', 'listening'].includes(section) && question.answerKey) {
+        // 1. Objective Grading (Multiple Choice / Fill Blank / Build Sentence)
+        if ((['reading', 'listening'].includes(section) || (section === 'writing' && (taskType === 'Build a Sentence' || taskType === 'build_sentence'))) && (question.answerKey || question.target_sentence)) {
+
+            // Special Case: Build a Sentence
+            if (taskType === 'Build a Sentence' || taskType === 'build_sentence') {
+                const target = question.structure?.example?.target_sentence || question.answerKey || "";
+                const isCorrect = String(userAnswer).trim() === String(target).trim();
+                return NextResponse.json({
+                    score: isCorrect ? 100 : 0,
+                    feedback: isCorrect ? "Correct!" : `Incorrect. The correct sentence was: "${target}"`,
+                    details: { rawScore: isCorrect ? 1 : 0, maxScore: 1 }
+                });
+            }
 
             // Special Logic for 'Complete The Words' (Partial Scoring)
             if (taskType === 'Complete The Words' || taskType === 'complete_words') {
@@ -71,6 +81,8 @@ export async function POST(req: Request) {
         } else if (section === 'writing') {
             if (taskType.includes('Email')) {
                 rubricId = 'toefl-writing-email';
+            } else if (taskType.includes('Academic Discussion') || taskType.includes('academic_discussion')) {
+                rubricId = 'toefl-writing-academic';
             }
         }
 

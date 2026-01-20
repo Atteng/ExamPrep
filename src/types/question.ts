@@ -24,6 +24,7 @@ export interface QuestionData {
     // Content varies by type
     prompt: string;
     text?: string; // For reading passages
+    context?: string; // For Writing tasks (scenario context)
     audioTranscript?: string; // For listening/speaking
     audioUrl?: string; // For playback
 
@@ -50,6 +51,34 @@ export interface QuestionData {
         options: string[];
         answerKey: string;
     }[];
+
+    // For Writing tasks with complex structure
+    structure?: {
+        prompt?: string;
+        context?: string;
+        example?: {
+            scrambled_parts?: string[];
+            target_sentence?: string;
+            scenario?: string;
+            task?: string;
+            recipient?: string;
+            subject?: string;
+            professor_post?: string;
+            student_posts?: Array<{
+                name: string;
+                content: string;
+            }>;
+        };
+        scenario?: string;
+        task?: string;
+        recipient?: string;
+        subject?: string;
+        professor_post?: string;
+        student_posts?: Array<{
+            name: string;
+            content: string;
+        }>;
+    };
 
     rubric?: ScoringRubric; // For subjective tasks (Writing/Speaking)
 }

@@ -81,6 +81,21 @@ export async function POST(request: Request) {
             questions = [...repeat, ...interview];
             // Don't shuffle - maintain order (Repeat first, then Interview)
 
+        } else if (taskType === 'all' && section === 'writing') {
+            console.log(`📡 API: Generating Writing Section (Target: ~23 mins)`);
+
+            // Build a Sentence: ~6 items (6 mins)
+            // Write an Email: 1 item (7 mins)
+            // Academic Discussion: 1 item (10 mins)
+            const [buildSentence, writeEmail, academicDiscussion] = await Promise.all([
+                generateQuestions(examType, section, 'Build a Sentence', 6),
+                generateQuestions(examType, section, 'Write an Email', 1),
+                generateQuestions(examType, section, 'Write for an Academic Discussion', 1)
+            ]);
+
+            questions = [...buildSentence, ...writeEmail, ...academicDiscussion];
+            // Maintain order: Sentence -> Email -> Discussion
+
         } else {
             console.log(`📡 API: Generating Section Drill [${taskType}]`);
             questions = await generateQuestions(examType, section, taskType, count || 1);

@@ -16,6 +16,9 @@ import TakeInterview from "@/components/questions/renderers/TakeInterview";
 import ListenConversation from "@/components/questions/renderers/ListenConversation";
 import ListenAnnouncement from "@/components/questions/renderers/ListenAnnouncement";
 import ListenAcademicTalk from "@/components/questions/renderers/ListenAcademicTalk";
+import BuildSentence from "@/components/questions/renderers/BuildSentence";
+import WriteEmail from "@/components/questions/renderers/WriteEmail";
+import WriteAcademicDiscussion from "@/components/questions/renderers/WriteAcademicDiscussion";
 
 interface TestEngineProps {
     questions: QuestionData[];
@@ -157,6 +160,34 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
             case 'listening_academic_talk':
                 return (
                     <ListenAcademicTalk
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
+            // --- WRITING ---
+            case 'Build a Sentence':
+            case 'build_sentence':
+                return (
+                    <BuildSentence
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
+            case 'Write an Email':
+            case 'write_email':
+                return (
+                    <WriteEmail
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
+            case 'Write for an Academic Discussion':
+            case 'academic_discussion':
+                return (
+                    <WriteAcademicDiscussion
                         question={currentQuestion}
                         onAnswer={submitAnswer}
                     />

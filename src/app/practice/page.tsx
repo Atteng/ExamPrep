@@ -294,6 +294,34 @@ export default function PracticePage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {selectedSection === 'writing' && (
+                                    <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <label className="text-sm font-medium">Task Type</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: "all", label: "Full Section", desc: "Sentence + Email + Discussion" },
+                                                { id: "Build a Sentence", label: "Build Sentence", desc: "Order words" },
+                                                { id: "Write an Email", label: "Write Email", desc: "7 min task" },
+                                                { id: "Write for an Academic Discussion", label: "Academic Disc.", desc: "10 min task" },
+                                            ].map((task) => (
+                                                <button
+                                                    key={task.id}
+                                                    onClick={() => setSelectedTaskType(task.id)}
+                                                    className={cn(
+                                                        "flex flex-col items-start p-3 rounded-lg border text-left text-sm transition-all hover:bg-muted",
+                                                        selectedTaskType === task.id
+                                                            ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                                                            : "bg-card text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <span className="font-semibold">{task.label}</span>
+                                                    <span className="text-xs opacity-80">{task.desc}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <button
