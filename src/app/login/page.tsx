@@ -21,17 +21,21 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        console.log("Attempting Auth...", { isSignUp, email });
 
         try {
             if (isSignUp) {
+                console.log("Attempting Sign Up...");
                 const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                 });
+                console.log("Sign Up Response:", { data, error });
                 if (error) throw error;
 
                 // Auto-create profile entry
                 if (data.user) {
+                    console.log("Creating user profile...");
                     await updateUserProfile({
                         id: data.user.id,
                         email: email,
@@ -43,16 +47,20 @@ export default function LoginPage() {
                 alert("Account created! You can now login.");
                 setIsSignUp(false);
             } else {
-                // ... existing Sign In logic
-                const { error } = await supabase.auth.signInWithPassword({
+                console.log("Attempting Sign In...");
+                const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
+                console.log("Sign In Response:", { data, error });
                 if (error) throw error;
-                router.push("/"); // Redirect to dashboard
-                router.refresh();
+
+                console.log("Sign in successful, redirecting...");
+                // Use replace instead of push to avoid back button issues
+                router.replace("/");
             }
         } catch (err: any) {
+            console.error("Auth Error:", err);
             setError(err.message);
         } finally {
             setLoading(false);
