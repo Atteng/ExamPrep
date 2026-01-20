@@ -52,15 +52,18 @@ export default function PracticePage() {
     const handleStart = async () => {
         setIsGenerating(true);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+
             // Determine API payload
             const payload = practiceMode === 'full'
-                ? { mode: 'full', difficulty: testDifficulty, examType: selectedExam }
+                ? { mode: 'full', difficulty: testDifficulty, examType: selectedExam, userId: user?.id }
                 : {
                     mode: 'section',
                     examType: selectedExam,
                     section: selectedSection,
                     taskType: selectedTaskType,
-                    count: 5
+                    count: 5,
+                    userId: user?.id
                 };
 
             const res = await fetch('/api/generate', {
@@ -246,6 +249,7 @@ export default function PracticePage() {
                                         <div className="grid grid-cols-2 gap-2">
                                             {[
                                                 { id: "all", label: "Full Section", desc: "Mix of all tasks" },
+                                                { id: "Listen and Choose a Response", label: "Choose Response", desc: "Quick response" },
                                                 { id: "Listen to a Conversation", label: "Conversation", desc: "Campus dialogue" },
                                                 { id: "Listen to an Announcement", label: "Announcement", desc: "Short notice" },
                                                 { id: "Listen to an Academic Talk", label: "Academic Talk", desc: "Short lecture" },
@@ -360,9 +364,9 @@ export default function PracticePage() {
                                 if (selectedTaskType === 'all') {
                                     switch (selectedSection) {
                                         case 'reading':
-                                            return 27 * 60; // 27 minutes (35-48 items)
+                                            return 30 * 60; // 30 minutes (Official Spec)
                                         case 'listening':
-                                            return 27 * 60; // 27 minutes (35-45 items)
+                                            return 29 * 60; // 29 minutes (Official Spec)
                                         case 'speaking':
                                             return 8 * 60;  // 8 minutes (11 items)
                                         case 'writing':
@@ -443,7 +447,12 @@ export default function PracticePage() {
                                             return {
                                                 ...grade,
                                                 section: q.section,
-                                                questionId
+                                                taskType: q.taskType,
+                                                questionId,
+                                                userAnswer: answer,
+                                                questionText: q.prompt || q.text, // Pass prompt for review
+                                                correctAnswer: q.answerKey,
+                                                options: q.options
                                             };
                                         })
                                     );
@@ -486,7 +495,8 @@ export default function PracticePage() {
                                         metadata: {
                                             mode: practiceMode,
                                             difficulty: testDifficulty,
-                                            // Store detailed feedback if needed (would need schema update for details)
+                                            // Store detailed feedback for analytics review
+                                            detailed_review: gradedAnswers
                                         }
                                     });
 

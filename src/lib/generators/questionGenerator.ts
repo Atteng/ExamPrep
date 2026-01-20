@@ -49,12 +49,21 @@ function applyClozeMasking(text: string) {
 }
 
 // Helper: Random Topic Generator
-function getRandomTopic() {
+function getRandomTopic(exclude: string[] = []) {
     const topics = [
         "Campus Life", "Modern History", "Environmental Science",
-        "Art History", "Psychology", "Technology", "Economics", "Astronomy"
+        "Art History", "Psychology", "Technology", "Economics", "Astronomy",
+        "Architecture", "Biology", "Literature", "Marketing", "Geology",
+        "Anthropology", "Computer Science", "Linguistics"
     ];
-    return topics[Math.floor(Math.random() * topics.length)];
+
+    // Filter available topics
+    const available = topics.filter(t => !exclude.includes(t));
+
+    // If all excluded, fall back to full list to avoid crash
+    const pool = available.length > 0 ? available : topics;
+
+    return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // Helper: Determine Level (Mock logic, eventually from User Profile)
@@ -98,13 +107,15 @@ export async function generateQuestions(
     examType: string,
     section: string,
     taskType: string,
-    count: number = 1
+    count: number = 1,
+    excludeTopics: string[] = [], // Phase 16: History Tracking
+    difficulty: string = 'B2' // Adaptive Level (B1/B2/C1/C2)
 ): Promise<QuestionData[]> {
     const sourceTask = getSourceData(taskType);
 
     // Smart Context
-    const topic = getRandomTopic();
-    const level = getTargetLevel();
+    const topic = getRandomTopic(excludeTopics);
+    const level = difficulty; // Use the passed difficulty instead of hardcoded getTargetLevel()
 
     // --- STRATEGY A: HYBRID (Complete The Words) ---
     if (taskType === 'complete_words' || taskType === 'Complete The Words') {
@@ -160,7 +171,11 @@ export async function generateQuestions(
         let promptText = "";
         if (contentType === 'speaking_sentence') promptText = `Write ${count} simple academic sentences for a 'Listen and Repeat' test. Topics: ${topic}. Level: ${level}. Output: JSON array of strings.`;
         else if (contentType === 'speaking_interview_question') promptText = `Write ${count} open-ended interview questions about ${topic}. Level: ${level}. Output: JSON array of strings.`;
-        else promptText = `Write a ${contentType.includes('daily') ? 'real-world text (e.g. email, ad)' : 'academic passage'} about ${topic}. Requirements: CEFR ${level}, 150-200 words.`;
+        else {
+            const isLongData = count >= 5;
+            const length = isLongData ? "400-500" : "150-200";
+            promptText = `Write a ${contentType.includes('daily') ? 'real-world text (e.g. email, ad)' : 'academic passage'} about ${topic}. Requirements: CEFR ${level}, ${length} words.`;
+        }
 
         const { text, source } = await fetchOrGenerateContent(
             contentType,
@@ -369,8 +384,8 @@ export async function generateQuestions(
     }
 }
 
-export async function generateFullTest(template: TestTemplate, examType: string = 'toefl'): Promise<QuestionData[]> {
-    console.log(`🚀 Starting Full Test Generation [Mode: ${template.mode}]`);
+export async function generateFullTest(template: TestTemplate, examType: string = 'toefl', difficulty: string = 'B2'): Promise<QuestionData[]> {
+    console.log(`🚀 Starting Full Test Generation [Mode: ${template.mode}, Level: ${difficulty}]`);
     const allQuestions: QuestionData[] = [];
     const tasks: { section: string, taskType: string, count: number }[] = [];
 
@@ -388,8 +403,9 @@ export async function generateFullTest(template: TestTemplate, examType: string 
 
     for (const task of tasks) {
         try {
-            console.log(`..Generating ${task.section} / ${task.taskType}`);
-            const qs = await generateQuestions(examType, task.section, task.taskType, task.count);
+            console.log(`..Generating ${task.section} / ${task.taskType} [${difficulty}]`);
+            // Pass the difficulty level explicitly
+            const qs = await generateQuestions(examType, task.section, task.taskType, task.count, [], difficulty);
             allQuestions.push(...qs);
         } catch (err) {
             console.error(`Failed to generate ${task.taskType}, skipping.`);

@@ -71,6 +71,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // If on login page, render without dashboard layout
     if (pathname === '/login') {
+        // Prevent flash of login form if we are authenticated and waiting for redirect
+        if (isAuthenticated) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-background">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            );
+        }
         return <>{children}</>;
     }
 

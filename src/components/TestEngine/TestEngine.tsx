@@ -16,6 +16,7 @@ import TakeInterview from "@/components/questions/renderers/TakeInterview";
 import ListenConversation from "@/components/questions/renderers/ListenConversation";
 import ListenAnnouncement from "@/components/questions/renderers/ListenAnnouncement";
 import ListenAcademicTalk from "@/components/questions/renderers/ListenAcademicTalk";
+import ListenChooseResponse from "@/components/questions/renderers/ListenChooseResponse";
 import BuildSentence from "@/components/questions/renderers/BuildSentence";
 import WriteEmail from "@/components/questions/renderers/WriteEmail";
 import WriteAcademicDiscussion from "@/components/questions/renderers/WriteAcademicDiscussion";
@@ -138,6 +139,15 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
                 );
 
             // --- LISTENING ---
+            case 'Listen and Choose a Response':
+            case 'listening_choose_response':
+                return (
+                    <ListenChooseResponse
+                        question={currentQuestion}
+                        onAnswer={submitAnswer}
+                    />
+                );
+
             case 'Listen to a Conversation':
             case 'listening_conversation':
                 return (

@@ -17,13 +17,10 @@ type FlowState = 'initial' | 'playing' | 'questions';
 export default function ListenConversation({ question, onAnswer }: ListenConversationProps) {
     const [flowState, setFlowState] = useState<FlowState>('initial');
     const [answers, setAnswers] = useState<{ [key: number]: string }>({});
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-    // Parse multi-question format
-    // Assuming question.text is the conversation transcript
-    // and question.options/answerKey might be array for multiple questions
     const conversationTranscript = question.text || "";
 
-    // Use multi-question array if available, otherwise fallback to single question
     const questions = question.questions?.map((q, idx) => ({
         id: idx,
         text: q.prompt,
@@ -37,9 +34,7 @@ export default function ListenConversation({ question, onAnswer }: ListenConvers
     }];
 
     useEffect(() => {
-        // Auto-play on mount
         handlePlayAudio();
-
         return () => {
             stopSpeaking();
         };
@@ -47,27 +42,31 @@ export default function ListenConversation({ question, onAnswer }: ListenConvers
 
     const handlePlayAudio = () => {
         setFlowState('playing');
-
         speakConversation(conversationTranscript, () => {
-            // Audio complete, show questions
             setFlowState('questions');
         });
     };
 
-    const handleAnswerSelect = (questionIndex: number, answer: string) => {
+    const handleAnswerSelect = (answer: string) => {
         setAnswers(prev => ({
             ...prev,
-            [questionIndex]: answer
+            [currentQuestionIndex]: answer
         }));
     };
 
-    const handleSubmit = () => {
-        // For now, submit the first answer (will update when multi-question is implemented)
-        const firstAnswer = answers[0] || "";
-        onAnswer(firstAnswer);
+    const handleNext = () => {
+        if (currentQuestionIndex < questions.length - 1) {
+            setCurrentQuestionIndex(prev => prev + 1);
+        } else {
+            // All questions answered, submit
+            const firstAnswer = answers[0] || "";
+            onAnswer(firstAnswer);
+        }
     };
 
-    const allAnswered = questions.every((_, idx) => answers[idx]);
+    const currentQuestion = questions[currentQuestionIndex];
+    const currentAnswer = answers[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
     return (
         <QuestionContainer question={question}>
@@ -80,7 +79,7 @@ export default function ListenConversation({ question, onAnswer }: ListenConvers
                     </span>
                     <h2 className="text-2xl font-bold">Listen to a Conversation</h2>
                     <p className="text-sm text-muted-foreground">
-                        {flowState === 'playing' ? 'Listen carefully...' : flowState === 'questions' ? 'Answer the questions below' : 'Preparing audio...'}
+                        {flowState === 'playing' ? 'Listen carefully...' : flowState === 'questions' ? `Question ${currentQuestionIndex + 1} of ${questions.length}` : 'Preparing audio...'}
                     </p>
                 </div>
 
@@ -121,45 +120,43 @@ export default function ListenConversation({ question, onAnswer }: ListenConvers
                             <span className="text-sm font-medium">Audio complete</span>
                         </div>
 
-                        {/* Questions */}
-                        {questions.map((q, qIdx) => (
-                            <div key={qIdx} className="space-y-4 p-6 border rounded-lg bg-card">
-                                <h3 className="font-medium text-lg">
-                                    Question {qIdx + 1}: {q.text}
-                                </h3>
+                        {/* Current Question */}
+                        <div className="space-y-4 p-6 border rounded-lg bg-card">
+                            <h3 className="font-medium text-lg">
+                                {currentQuestion.text}
+                            </h3>
 
-                                <div className="space-y-2">
-                                    {q.options.map((option, optIdx) => {
-                                        const optionLetter = String.fromCharCode(65 + optIdx); // A, B, C, D
-                                        const isSelected = answers[qIdx] === option;
+                            <div className="space-y-2">
+                                {currentQuestion.options.map((option, optIdx) => {
+                                    const optionLetter = String.fromCharCode(65 + optIdx);
+                                    const isSelected = currentAnswer === option;
 
-                                        return (
-                                            <button
-                                                key={optIdx}
-                                                onClick={() => handleAnswerSelect(qIdx, option)}
-                                                className={cn(
-                                                    "w-full text-left p-4 rounded-lg border-2 transition-all",
-                                                    isSelected
-                                                        ? "border-primary bg-primary/5"
-                                                        : "border-border hover:border-primary/50 hover:bg-accent"
-                                                )}
-                                            >
-                                                <span className="font-medium mr-2">{optionLetter}.</span>
-                                                {option.replace(/^[A-D]\.\s*/, '')}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                                    return (
+                                        <button
+                                            key={optIdx}
+                                            onClick={() => handleAnswerSelect(option)}
+                                            className={cn(
+                                                "w-full text-left p-4 rounded-lg border-2 transition-all",
+                                                isSelected
+                                                    ? "border-primary bg-primary/5"
+                                                    : "border-border hover:border-primary/50 hover:bg-accent"
+                                            )}
+                                        >
+                                            <span className="font-medium mr-2">{optionLetter}.</span>
+                                            {option.replace(/^[A-D]\.\s*/, '')}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        ))}
+                        </div>
 
-                        {/* Submit Button */}
+                        {/* Next/Submit Button */}
                         <button
-                            onClick={handleSubmit}
-                            disabled={!allAnswered}
+                            onClick={handleNext}
+                            disabled={!currentAnswer}
                             className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            {allAnswered ? 'Submit Answer' : `Answer ${questions.length - Object.keys(answers).length} more question(s)`}
+                            {isLastQuestion ? 'Submit Answer' : 'Next Question'}
                         </button>
                     </div>
                 )}

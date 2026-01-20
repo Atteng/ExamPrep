@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { QuestionData } from "@/types/question";
+import { supabase } from "@/lib/supabase";
 
 interface UseTestSessionProps {
     questions: QuestionData[];
@@ -71,11 +72,19 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
         console.log(`📊 Module 1 Score: ${module1Score}% (${correctCount}/${module1Questions.length})`);
 
         try {
+            // Get current user for history tracking
+            const { data: { user } } = await supabase.auth.getUser();
+
             // Fetch Module 2 questions
             const response = await fetch('/api/generate-module2', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ examType, section, module1Score })
+                body: JSON.stringify({
+                    examType,
+                    section,
+                    module1Score,
+                    userId: user?.id
+                })
             });
 
             if (!response.ok) throw new Error('Failed to generate Module 2');

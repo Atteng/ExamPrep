@@ -14,6 +14,9 @@ interface GradedItem {
         maxScore?: number;
     };
     userAnswer: string;
+    questionText?: string;
+    correctAnswer?: string;
+    options?: string[];
 }
 
 interface TestResultsProps {
@@ -27,6 +30,13 @@ interface TestResultsProps {
 export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, onClose }: TestResultsProps) {
     // Group Feedback by Section
     const feedbackItems = gradedItems.filter(i => i.feedback || i.details?.strength);
+
+    // Helper to determine status color
+    const getStatusColor = (score: number) => {
+        if (score >= 80) return "text-green-600 bg-green-50 border-green-200";
+        if (score >= 50) return "text-yellow-600 bg-yellow-50 border-yellow-200";
+        return "text-red-600 bg-red-50 border-red-200";
+    };
 
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
@@ -134,7 +144,38 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                         </div>
                     )}
 
+                    {/* Detailed Review List */}
+                    <div className="p-6 border-t bg-muted/5 space-y-4">
+                        <h3 className="text-lg font-bold">Question Review</h3>
+                        <div className="space-y-4">
+                            {gradedItems.map((item, idx) => (
+                                <div key={idx} className={cn("p-4 rounded-lg border", getStatusColor(item.score))}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-sm font-bold uppercase opacity-80">{item.taskType}</span>
+                                        <span className="font-bold">{item.score}%</span>
+                                    </div>
+
+                                    <p className="font-medium mb-3 text-foreground">{item.questionText || "Question Prompt Missing"}</p>
+
+                                    <div className="grid md:grid-cols-2 gap-4 text-sm text-foreground">
+                                        <div className="bg-background/50 p-2 rounded">
+                                            <span className="block text-xs uppercase font-bold text-muted-foreground mb-1">Your Answer</span>
+                                            <p>{typeof item.userAnswer === 'string' ? item.userAnswer : JSON.stringify(item.userAnswer)}</p>
+                                        </div>
+                                        {item.correctAnswer && (
+                                            <div className="bg-background/50 p-2 rounded">
+                                                <span className="block text-xs uppercase font-bold text-muted-foreground mb-1">Correct Answer</span>
+                                                <p>{typeof item.correctAnswer === 'string' ? item.correctAnswer : JSON.stringify(item.correctAnswer)}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                 </div>
+
 
                 {/* Footer */}
                 <div className="p-6 border-t bg-muted/20 flex justify-end">

@@ -11,19 +11,25 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { getUserProfile, getUserResults } from "@/lib/db/actions";
+import { getUserProfile, getUserResults, getUserStats } from "@/lib/db/actions";
 
 export default function Home() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState({ questionsAnswered: 0, avgAccuracy: 0, studyHours: 0, testsTaken: 0 });
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const userProfile = await getUserProfile(user.id);
+          const [userProfile, userStats] = await Promise.all([
+            getUserProfile(user.id),
+            getUserStats(user.id)
+          ]);
           setProfile(userProfile);
+          if (userStats) setStats(userStats);
         }
       } catch (error) {
         console.error("Dashboard load failed", error);
@@ -120,9 +126,9 @@ export default function Home() {
       {/* Quick Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Weekly Study", value: `0/${studyGoal}h`, icon: Clock, trend: "Get started" },
-          { label: "Questions", value: "0", icon: BookOpen, trend: "Start today" },
-          { label: "Avg Accuracy", value: "0%", icon: Target, trend: "No change" },
+          { label: "Weekly Study", value: `${stats.studyHours}/${studyGoal}h`, icon: Clock, trend: "Keep it up" },
+          { label: "Questions", value: `${stats.questionsAnswered}`, icon: BookOpen, trend: "Total answered" },
+          { label: "Avg Accuracy", value: `${stats.avgAccuracy}%`, icon: Target, trend: "Overall performance" },
           {
             label: "Next Exam",
             value: nextExamDays === "N/A" ? "N/A" : `${nextExamDays}d`,

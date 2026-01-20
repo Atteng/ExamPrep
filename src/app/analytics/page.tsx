@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getUserResults } from "@/lib/db/actions";
 import { ExamType } from "@/types/question";
+import { TestResults } from "@/components/TestEngine/TestResults";
 
 interface ScoreData {
     id: string;
@@ -23,6 +24,7 @@ interface ScoreData {
         quantitative?: number;
         analytical?: number;
     };
+    metadata?: any;
 }
 
 // ... (existing imports)
@@ -31,6 +33,8 @@ export default function AnalyticsPage() {
     const [selectedExam, setSelectedExam] = useState<ExamType>('toefl');
     const [selectedResultId, setSelectedResultId] = useState<string>('');
     const [testResults, setTestResults] = useState<ScoreData[]>([]);
+    const [showReview, setShowReview] = useState(false);
+    const [displayMode, setDisplayMode] = useState<'standard' | 'band'>('standard');
 
     useEffect(() => {
         async function loadData() {
@@ -58,7 +62,8 @@ export default function AnalyticsPage() {
                             verbal: r.section_scores['verbal'],
                             quantitative: r.section_scores['quantitative'],
                             analytical: r.section_scores['analytical'],
-                        }
+                        },
+                        metadata: r.metadata
                     }));
                     setTestResults(mappedData);
                 } else {
@@ -112,9 +117,32 @@ export default function AnalyticsPage() {
     return (
         <div className="min-h-screen bg-background">
             <div className="container max-w-7xl mx-auto p-6">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-                    <p className="text-muted-foreground mt-2">Track your performance across all exams</p>
+                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+                        <p className="text-muted-foreground mt-2">Track your performance across all exams</p>
+                    </div>
+
+                    <div className="bg-card border rounded-lg p-1 flex items-center space-x-1">
+                        <button
+                            onClick={() => setDisplayMode('standard')}
+                            className={cn(
+                                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                                displayMode === 'standard' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+                            )}
+                        >
+                            Standard
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode('band')}
+                            className={cn(
+                                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                                displayMode === 'band' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+                            )}
+                        >
+                            Band (1-6)
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -213,9 +241,15 @@ export default function AnalyticsPage() {
                                                 />
                                             </svg>
                                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Score</span>
-                                                <span className="text-4xl font-bold mt-1">{currentResult.totalScore}</span>
-                                                <span className="text-sm text-muted-foreground">out of {currentResult.maxScore}</span>
+                                                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                                    {displayMode === 'standard' ? 'Total Score' : 'Band Score'}
+                                                </span>
+                                                <span className="text-4xl font-bold mt-1">
+                                                    {displayMode === 'standard' ? currentResult.totalScore : toBandScore(currentResult.totalScore, currentResult.maxScore)}
+                                                </span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    out of {displayMode === 'standard' ? currentResult.maxScore : "6.0"}
+                                                </span>
                                             </div>
                                         </div>
 
@@ -223,22 +257,44 @@ export default function AnalyticsPage() {
                                         <div className="flex-1 grid grid-cols-2 gap-4 w-full">
                                             {selectedExam === 'toefl' && (
                                                 <>
-                                                    {renderSectionBox('Reading', currentResult.scores.reading || 0, 30)}
-                                                    {renderSectionBox('Listening', currentResult.scores.listening || 0, 30)}
-                                                    {renderSectionBox('Speaking', currentResult.scores.speaking || 0, 30)}
-                                                    {renderSectionBox('Writing', currentResult.scores.writing || 0, 30)}
+                                                    {renderSectionBox('Reading', currentResult.scores.reading || 0, 30, displayMode)}
+                                                    {renderSectionBox('Listening', currentResult.scores.listening || 0, 30, displayMode)}
+                                                    {renderSectionBox('Speaking', currentResult.scores.speaking || 0, 30, displayMode)}
+                                                    {renderSectionBox('Writing', currentResult.scores.writing || 0, 30, displayMode)}
                                                 </>
                                             )}
                                             {selectedExam === 'gre' && (
                                                 <>
-                                                    {renderSectionBox('Verbal', currentResult.scores.verbal || 0, 170)}
-                                                    {renderSectionBox('Quantitative', currentResult.scores.quantitative || 0, 170)}
-                                                    {renderSectionBox('Writing', currentResult.scores.analytical || 0, 6.0)}
+                                                    {renderSectionBox('Verbal', currentResult.scores.verbal || 0, 170, displayMode)}
+                                                    {renderSectionBox('Quantitative', currentResult.scores.quantitative || 0, 170, displayMode)}
+                                                    {renderSectionBox('Writing', currentResult.scores.analytical || 0, 6.0, displayMode)}
                                                 </>
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Action Bar */}
+                                    <div className="mt-6 flex justify-end border-t pt-6">
+                                        <button
+                                            onClick={() => setShowReview(true)}
+                                            className="flex items-center px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium hover:bg-secondary/80 transition-colors"
+                                        >
+                                            <Award className="w-4 h-4 mr-2" />
+                                            Review Questions
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Detailed Review Modal */}
+                                {showReview && currentResult && (
+                                    <TestResults
+                                        totalScore={currentResult.totalScore}
+                                        maxScore={currentResult.maxScore}
+                                        sectionScores={currentResult.scores as any}
+                                        gradedItems={currentResult.metadata?.detailed_review || []}
+                                        onClose={() => setShowReview(false)}
+                                    />
+                                )}
 
                                 {/* SuperScore Card (TOEFL only) */}
                                 {selectedExam === 'toefl' && examResults.length > 1 && (
@@ -266,16 +322,28 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 
-function renderSectionBox(title: string, score: number, max: number) {
+// Helper: Convert to Band Score (1.0 - 6.0, where 6.0 is Best)
+function toBandScore(score: number, max: number): string {
+    if (max === 0) return "0.0";
+    const percentage = score / max;
+    // Linear mapping: 0% -> 1.0, 100% -> 6.0
+    const band = 1 + (percentage * 5);
+    return band.toFixed(1);
+}
+
+function renderSectionBox(title: string, score: number, max: number, mode: 'standard' | 'band' = 'standard') {
+    const displayScore = mode === 'standard' ? score : toBandScore(score, max);
+    const displayMax = mode === 'standard' ? max : "6.0";
+
     return (
         <div className="bg-muted/30 rounded-lg p-4 text-center">
             <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{title}</div>
-            <div className="text-3xl font-bold mb-1">{score}</div>
-            <div className="text-xs text-muted-foreground">out of {max}</div>
+            <div className="text-3xl font-bold mb-1">{displayScore}</div>
+            <div className="text-xs text-muted-foreground">out of {displayMax}</div>
         </div>
     );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, GraduationCap, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, GraduationCap, BarChart3, Settings, School } from "lucide-react";
 
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname();
@@ -11,6 +11,7 @@ export function Sidebar({ className }: { className?: string }) {
     const links = [
         { href: "/", label: "Dashboard", icon: LayoutDashboard },
         { href: "/practice", label: "Practice Mode", icon: GraduationCap },
+        { href: "/schools", label: "School Tracker", icon: School },
         { href: "/analytics", label: "Analytics", icon: BarChart3 },
         { href: "/profile", label: "Settings", icon: Settings },
     ];

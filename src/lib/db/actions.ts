@@ -176,3 +176,77 @@ export async function saveLibraryContent(
     if (error) console.error("Library Save Failed:", error);
     return data;
 }
+
+// --- Topic History (Phase 16) ---
+
+export async function recordTopic(userId: string, topic: string) {
+    if (!userId || !topic) return;
+
+    // Fire and forget
+    const { error } = await supabase
+        .from('topic_history')
+        .insert({
+            user_id: userId,
+            topic: topic
+        });
+
+    if (error) {
+        console.error('Error recording topic history:', error);
+    }
+}
+
+export async function getRecentTopics(userId: string, limit = 10) {
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+        .from('topic_history')
+        .select('topic')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.error('Error fetching recent topics:', error);
+        return [];
+    }
+
+    return data.map(row => row.topic);
+}
+
+export async function getUserStats(userId: string) {
+    if (!userId) return null;
+
+    // Fetch all results
+    const { data: results, error } = await supabase
+        .from('exam_results')
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error || !results) return null;
+
+    // Calculate aggregated stats
+    const totalTests = results.length;
+
+    // Estimate questions: Mock estimation based on typical exam size if not stored explicitly
+    // In V2, we might want to store 'question_count' in exam_results
+    const estimatedQuestions = totalTests * 20; // Avg 20 qs per session
+
+    // Calculate Accuracy (Average of total_score / max_score)
+    let totalAccuracyParams = 0;
+    results.forEach(r => {
+        const percentage = r.total_score / r.max_score;
+        totalAccuracyParams += percentage;
+    });
+    const avgAccuracy = totalTests > 0 ? Math.round((totalAccuracyParams / totalTests) * 100) : 0;
+
+    // Study Hours (Estimate based on tests)
+    // Assume avg 15 mins (0.25h) per test session if no duration stored
+    const studyHours = Math.round((totalTests * 0.25) * 10) / 10;
+
+    return {
+        questionsAnswered: estimatedQuestions,
+        avgAccuracy: avgAccuracy,
+        studyHours: studyHours,
+        testsTaken: totalTests
+    };
+}
