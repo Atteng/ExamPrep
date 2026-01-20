@@ -14,6 +14,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // ...
 
@@ -44,7 +45,7 @@ export default function LoginPage() {
                     });
                 }
 
-                alert("Account created! You can now login.");
+                setSuccessMessage("Account created! Please check your email and click the verification link to complete your registration.");
                 setIsSignUp(false);
             } else {
                 console.log("Attempting Sign In...");
@@ -117,6 +118,15 @@ export default function LoginPage() {
                         </p>
                     </div>
 
+
+
+                    {successMessage && (
+                        <div className="p-4 bg-green-50/50 border border-green-200 text-green-700 rounded-lg text-sm text-center">
+                            <p className="font-semibold mb-1">Success!</p>
+                            {successMessage}
+                        </div>
+                    )}
+
                     <form onSubmit={handleAuth} className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
@@ -183,6 +193,7 @@ export default function LoginPage() {
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }
