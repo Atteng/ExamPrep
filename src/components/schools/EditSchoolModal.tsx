@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { School, NewSchool, SchoolStatus, SchoolRequirement } from "@/lib/db/schools";
 import { X, Plus, Trash2, MapPin, Banknote, GraduationCap, Lightbulb, ListTodo, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,28 @@ export function EditSchoolModal({ isOpen, onClose, onSave, school }: EditSchoolM
     const [insights, setInsights] = useState<string[]>(school?.insights || []);
 
     const [isSaving, setIsSaving] = useState(false);
+
+    // Sync state with props when modal opens or school changes
+    useEffect(() => {
+        if (isOpen) {
+            setName(school?.name || "");
+            setProgram(school?.program || "");
+            setStatus(school?.status || 'active');
+            setDeadline(school?.deadline ? new Date(school.deadline).toISOString().split('T')[0] : "");
+            setRequirements(school?.requirements || [
+                { item: "CV/Resume", done: false },
+                { item: "Transcript", done: false },
+                { item: "Motivation Letter", done: false }
+            ]);
+            setLocation(school?.location || "");
+            setFeeAmount(school?.fee_amount || "");
+            setFeeNote(school?.fee_note || "");
+            setTestToefl(school?.test_toefl || "");
+            setTestIelts(school?.test_ielts || "");
+            setTestGre(school?.test_gre || "");
+            setInsights(school?.insights || []);
+        }
+    }, [isOpen, school]);
 
     if (!isOpen) return null;
 

@@ -1,146 +1,176 @@
-// Enhanced TTS with multi-speaker support
+// Enhanced TTS with Google Cloud API and Caching
 
 type VoiceGender = 'male' | 'female' | 'neutral';
 
-let voicesLoaded = false;
-let availableVoices: SpeechSynthesisVoice[] = [];
+// Simple in-memory cache to save API costs
+// Key: text, Value: Blob URL
+const audioCache = new Map<string, string>();
 
-// Load voices on first use
-const loadVoices = () => {
-    if (voicesLoaded) return;
+/**
+ * Fetch audio from our API proxy
+ */
+async function fetchTTS(text: string, gender: VoiceGender = 'neutral'): Promise<string> {
+    // 1. Check Cache
+    const cacheKey = `${text}-${gender}`;
+    if (audioCache.has(cacheKey)) {
+        return audioCache.get(cacheKey)!;
+    }
 
-    availableVoices = window.speechSynthesis.getVoices();
-    voicesLoaded = true;
-
-    // Fallback: if voices not loaded yet, listen for event
-    if (availableVoices.length === 0) {
-        window.speechSynthesis.addEventListener('voiceschanged', () => {
-            availableVoices = window.speechSynthesis.getVoices();
-            voicesLoaded = true;
+    try {
+        // 2. Fetch from API
+        const response = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text,
+                // We could pass gender here to select different voices in the backend
+                // For now backend uses a default high-quality voice
+                voiceId: gender === 'male' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+            })
         });
+
+        if (!response.ok) throw new Error("TTS API Failed");
+
+        const data = await response.json();
+        const audioContent = data.audioContent; // Base64 string
+
+        // 3. Convert Base64 to Blob
+        const binaryString = window.atob(audioContent);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+
+        // 4. Cache it
+        audioCache.set(cacheKey, url);
+        return url;
+
+    } catch (err) {
+        console.error("TTS Fetch Error, falling back to browser:", err);
+        return ""; // Empty string triggers fallback
     }
-};
+}
 
-// Select voice by gender preference
-const selectVoice = (gender: VoiceGender): SpeechSynthesisVoice | null => {
-    loadVoices();
+// Track current audio to enable stopping
+let currentAudio: HTMLAudioElement | null = null;
 
-    if (availableVoices.length === 0) return null;
-
-    // Try to find a voice matching the gender
-    if (gender === 'female') {
-        return availableVoices.find(v =>
-            v.name.toLowerCase().includes('female') ||
-            v.name.includes('Samantha') ||
-            v.name.includes('Victoria') ||
-            v.name.includes('Karen')
-        ) || availableVoices[0];
+// Helper: Play audio URL and wait for completion
+function playAudio(url: string): Promise<void> {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
     }
 
-    if (gender === 'male') {
-        return availableVoices.find(v =>
-            v.name.toLowerCase().includes('male') ||
-            v.name.includes('Daniel') ||
-            v.name.includes('Alex') ||
-            v.name.includes('Fred')
-        ) || availableVoices[1] || availableVoices[0];
-    }
+    return new Promise((resolve, reject) => {
+        const audio = new Audio(url);
+        currentAudio = audio; // Track it
 
-    return availableVoices[0];
-};
+        audio.onended = () => {
+            currentAudio = null;
+            resolve();
+        };
+        audio.onerror = (e) => {
+            currentAudio = null;
+            reject(e);
+        };
+        audio.play().catch(reject);
+    });
+}
 
-// Basic single-voice TTS (existing functionality)
-export const speakText = (text: string, onEnd?: () => void) => {
+// Helper: Browser fallback (Original Logic)
+function speakBrowser(text: string, gender: VoiceGender, onEnd?: () => void) {
     if (!window.speechSynthesis) {
-        console.error("Browser does not support Speech Synthesis");
         if (onEnd) onEnd();
         return;
     }
 
+    // Cancel any ongoing speech to avoid overlap during fallback
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.lang = "en-US";
+    const voices = window.speechSynthesis.getVoices();
 
-    if (onEnd) {
-        utterance.onend = onEnd;
-    }
+    // Simple voice selection
+    let voice = voices.find(v => v.lang.includes('en-US'));
+    if (gender === 'female') voice = voices.find(v => v.name.includes('Female') || v.name.includes('Samantha'));
+    if (gender === 'male') voice = voices.find(v => v.name.includes('Male') || v.name.includes('Daniel'));
+
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.9;
+
+    utterance.onend = () => { if (onEnd) onEnd(); };
+    utterance.onerror = () => { if (onEnd) onEnd(); };
 
     window.speechSynthesis.speak(utterance);
+}
+
+// --- EXPORTS ---
+
+export const speakText = async (text: string, onEnd?: () => void) => {
+    // Try API first
+    const url = await fetchTTS(text, 'neutral');
+
+    if (url) {
+        try {
+            await playAudio(url);
+            if (onEnd) onEnd();
+        } catch (e) {
+            console.warn("Audio Playback failed, fallback to browser");
+            speakBrowser(text, 'neutral', onEnd);
+        }
+    } else {
+        speakBrowser(text, 'neutral', onEnd);
+    }
 };
 
-// Multi-speaker conversation support
-export const speakConversation = (transcript: string, onEnd?: () => void) => {
-    if (!window.speechSynthesis) {
-        console.error("Browser does not support Speech Synthesis");
-        if (onEnd) onEnd();
-        return;
-    }
-
-    window.speechSynthesis.cancel();
-    loadVoices();
-
-    // Parse conversation lines (format: "Speaker: text")
+export const speakConversation = async (transcript: string, onEnd?: () => void) => {
     const lines = transcript.split('\n').filter(line => line.trim());
-    let currentIndex = 0;
 
-    const speakNext = () => {
-        if (currentIndex >= lines.length) {
-            if (onEnd) onEnd();
-            return;
-        }
-
-        const line = lines[currentIndex].trim();
-
-        // Check if line has speaker label
+    for (const line of lines) {
+        // Parse Speaker
         const colonIndex = line.indexOf(':');
         let text = line;
         let gender: VoiceGender = 'neutral';
 
-        if (colonIndex > 0 && colonIndex < 20) { // Speaker label should be short
+        if (colonIndex > 0 && colonIndex < 20) {
             const speaker = line.substring(0, colonIndex).trim().toLowerCase();
             text = line.substring(colonIndex + 1).trim();
+            if (speaker.includes('woman') || speaker.includes('female')) gender = 'female';
+            else if (speaker.includes('man') || speaker.includes('male')) gender = 'male';
+        }
 
-            // Determine gender from speaker label
-            if (speaker.includes('woman') || speaker.includes('female') || speaker.includes('she')) {
-                gender = 'female';
-            } else if (speaker.includes('man') || speaker.includes('male') || speaker.includes('he')) {
-                gender = 'male';
+        // Try API
+        const url = await fetchTTS(text, gender);
+
+        if (url) {
+            try {
+                await playAudio(url);
+            } catch (e) {
+                // If one line fails, try browser for that line then continue
+                await new Promise<void>(resolve => speakBrowser(text, gender, resolve));
             }
+        } else {
+            // Fallback to browser (wrapped in promise)
+            await new Promise<void>(resolve => speakBrowser(text, gender, resolve));
         }
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = gender === 'female' ? 1.1 : 0.9;
-        utterance.lang = "en-US";
+        // Small pause between speakers
+        await new Promise(r => setTimeout(r, 300));
+    }
 
-        const voice = selectVoice(gender);
-        if (voice) {
-            utterance.voice = voice;
-        }
-
-        utterance.onend = () => {
-            currentIndex++;
-            // Small pause between speakers (200ms)
-            setTimeout(speakNext, 200);
-        };
-
-        utterance.onerror = () => {
-            console.error("Speech synthesis error");
-            currentIndex++;
-            speakNext();
-        };
-
-        window.speechSynthesis.speak(utterance);
-    };
-
-    speakNext();
+    if (onEnd) onEnd();
 };
 
 export const stopSpeaking = () => {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+    // Stop Browser
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    // Stop API Audio
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
     }
 };
