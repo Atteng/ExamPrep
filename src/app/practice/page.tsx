@@ -140,8 +140,8 @@ export default function PracticePage() {
                                 className="w-full h-10 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             >
                                 <option value="toefl">TOEFL iBT (New)</option>
-                                <option value="gre">GRE General</option>
-                                <option value="german">German B1/B2</option>
+                                <option value="gre" disabled>GRE General (Coming Soon)</option>
+                                <option value="german" disabled>German B1/B2 (Coming Soon)</option>
                             </select>
                         </div>
 
@@ -372,8 +372,28 @@ export default function PracticePage() {
                     </div>
                 </div>
 
-                {/* Right Area: Test Engine or Placeholder */}
-                <div className="flex-1 bg-muted/20 md:border md:rounded-xl md:shadow-inner overflow-hidden relative">
+                {/* 4. Test Area (Full overlay on mobile) */}
+                <div className={cn(
+                    "flex-1 bg-background md:rounded-xl md:border md:shadow-sm overflow-hidden flex flex-col relative",
+                    isTestActive && "fixed inset-0 z-50 md:static md:z-auto"
+                )}>
+                    {showResults && finalResults && (
+                        <TestResults
+                            totalScore={finalResults.totalScore}
+                            maxScore={finalResults.maxScore}
+                            sectionScores={finalResults.sectionScores}
+                            gradedItems={finalResults.gradedItems}
+                            onClose={() => {
+                                setShowResults(false);
+                                // If they close the review modal, they likely want to go back to dashboard 
+                                // OR back to the completion screen (optional, but simplicity suggests dashboard)
+                                setIsTestActive(false);
+                                setQuestions(MOCK_QUESTIONS);
+                                window.location.href = '/';
+                            }}
+                        />
+                    )}
+
                     {isTestActive ? (
                         <TestEngine
                             questions={questions}
@@ -428,6 +448,7 @@ export default function PracticePage() {
                             examType={selectedExam}
                             section={selectedSection}
                             onExit={handleExit}
+                            onReview={() => setShowResults(true)}
                             onComplete={async (results) => {
                                 console.log("Grading and saving results...", results);
                                 try {
@@ -435,72 +456,114 @@ export default function PracticePage() {
                                     const { data: { user } } = await supabase.auth.getUser();
                                     if (!user) {
                                         console.warn("No user logged in, cannot save results.");
-                                        // Still allow them to see score locally if we implemented a results modal,
-                                        // but for now just alert.
                                         alert("You are not logged in. Results will not be saved.");
                                         return;
                                     }
 
-                                    // 2. Grade Each Answer
-                                    // Note: In production, batch this or do it all server-side.
+                                    // 2. Prepare Batch Submission
+                                    // We must match results (ID -> Value) back to the generatedQuestions (Full Object)
+                                    // Note: The state variable is named 'questions'
+                                    const submissions = Object.entries(results || {}).map(([qId, answer]) => {
+                                        const originalQ = questions.find(q => q.id === qId);
+                                        if (!originalQ) return null;
+                                        return {
+                                            examType: selectedExam,
+                                            section: originalQ.section,
+                                            taskType: originalQ.taskType,
+                                            question: originalQ,
+                                            userAnswer: answer
+                                        };
+                                    }).filter(Boolean);
+
+                                    // 3. Grade Answers API Call (Batch)
+                                    const gradingRes = await fetch('/api/grade', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            submissions: submissions,
+                                            examType: selectedExam
+                                        })
+                                    });
+
+                                    if (!gradingRes.ok) throw new Error("Grading failed");
+                                    const gradingData = await gradingRes.json();
+                                    const gradedAnswers = gradingData.results;
+                                    // 4. Hydrate Results with Question Data (for Review UI)
+                                    // The API returns scores but not the prompt/options. We must merge them.
+                                    const hydratedResults = gradedAnswers.map((result: any) => {
+                                        const originalQ = questions.find(q => q.id === result.questionId);
+
+                                        // Extract question text from various possible locations
+                                        let questionText = "Question Prompt Missing";
+                                        if (originalQ) {
+                                            // Try multiple fields based on question type
+                                            questionText =
+                                                originalQ.prompt ||
+                                                originalQ.text ||
+                                                originalQ.structure?.prompt ||
+                                                originalQ.structure?.context ||
+                                                (originalQ.questions && originalQ.questions.length > 0 ?
+                                                    `Listening passage with ${originalQ.questions.length} questions` :
+                                                    "");
+                                        }
+
+                                        // Extract correct answer from various locations
+                                        let correctAnswer = originalQ?.answerKey ||
+                                            (originalQ?.questions && originalQ.questions.length > 0 ?
+                                                "See individual question feedback" :
+                                                "");
+
+                                        // Format user answer for display
+                                        let userAnswer = results[result.questionId];
+
+                                        return {
+                                            ...result,
+                                            questionText,
+                                            userAnswer, // Keep raw answer for renderers to handle
+                                            correctAnswer,
+                                            // Pass full original question for renderers (crucial for audio/context)
+                                            originalQuestion: originalQ,
+                                            options: originalQ?.options || []
+                                        };
+                                    });
+
+                                    setShowResults(true);
+
+                                    // Calculate Scores (re-calculate from hydrated to be safe)
                                     let totalEarned = 0;
                                     let totalPossible = 0;
                                     const sectionScores = { reading: 0, listening: 0, speaking: 0, writing: 0 };
+
+                                    hydratedResults.forEach((item: any) => {
+                                        const max = item.details?.maxScore || 1; // Default to 1 if missing
+                                        const earned = (item.score / 100) * max;
+
+                                        totalEarned += earned;
+                                        totalPossible += max;
+
+                                        // Section Scores
+                                        const sec = item.section as keyof typeof sectionScores;
+                                        if (sectionScores[sec] !== undefined) {
+                                            sectionScores[sec] += (item.score / 100) * 1; // Simplified section scoring
+                                        }
+                                    });
+
                                     const sectionCounts = { reading: 0, listening: 0, speaking: 0, writing: 0 };
 
-                                    const gradedAnswers = await Promise.all(
-                                        Object.entries(results).map(async ([questionId, answer]) => {
-                                            // Find the question object
-                                            const q = questions.find(q => q.id === questionId);
-                                            if (!q) return null;
-
-                                            const payload = {
-                                                examType: selectedExam,
-                                                section: q.section,
-                                                taskType: q.taskType,
-                                                question: q,
-                                                userAnswer: answer
-                                            };
-
-                                            const res = await fetch('/api/grade', {
-                                                method: 'POST',
-                                                body: JSON.stringify(payload)
-                                            });
-                                            const grade = await res.json();
-
-                                            return {
-                                                ...grade,
-                                                section: q.section,
-                                                taskType: q.taskType,
-                                                questionId,
-                                                userAnswer: answer,
-                                                questionText: q.prompt || q.text, // Pass prompt for review
-                                                correctAnswer: q.answerKey,
-                                                options: q.options
-                                            };
-                                        })
-                                    );
-
                                     // 3. Aggregate Scores
-                                    gradedAnswers.forEach(g => {
+                                    gradedAnswers.forEach((g: any) => {
                                         if (!g) return;
-                                        // Score is 0-100 normalized
                                         totalEarned += g.score;
                                         totalPossible += 100;
-
-                                        // Section tracking
                                         if (sectionCounts[g.section as keyof typeof sectionCounts] !== undefined) {
                                             sectionScores[g.section as keyof typeof sectionCounts] += g.score;
                                             sectionCounts[g.section as keyof typeof sectionCounts] += 1;
                                         }
                                     });
 
-                                    // Normalize to Exam Scale (e.g. TOEFL 120)
-                                    // Simple logic: Average % * 120
                                     const rawPercentage = totalPossible > 0 ? (totalEarned / totalPossible) : 0;
                                     const finalScore = Math.round(rawPercentage * 120);
 
-                                    // Normalize Sections (0-30 scale for TOEFL)
                                     const finalSectionScores = {
                                         reading: sectionCounts.reading ? Math.round((sectionScores.reading / (sectionCounts.reading * 100)) * 30) : 0,
                                         listening: sectionCounts.listening ? Math.round((sectionScores.listening / (sectionCounts.listening * 100)) * 30) : 0,
@@ -519,21 +582,20 @@ export default function PracticePage() {
                                         metadata: {
                                             mode: practiceMode,
                                             difficulty: testDifficulty,
-                                            // Store detailed feedback for analytics review
                                             detailed_review: gradedAnswers
                                         }
                                     });
 
                                     console.log("Result saved successfully!", finalScore);
 
-                                    // Show Results UI
+                                    // Update state for Review, BUT DO NOT SHOW IT YET
                                     setFinalResults({
                                         totalScore: finalScore,
                                         maxScore: 120,
                                         sectionScores: finalSectionScores,
-                                        gradedItems: gradedAnswers
+                                        gradedItems: hydratedResults // Use hydrated results with originalQuestion
                                     });
-                                    setShowResults(true);
+                                    // setShowResults(true); // <--- REMOVED: Wait for user to click Review
 
                                 } catch (error) {
                                     console.error("Failed to save result:", error);

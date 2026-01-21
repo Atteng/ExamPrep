@@ -5,18 +5,29 @@ import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
 import { uploadAudioResponse } from "@/lib/db/storage";
-import { Monitor, Mic, MicOff } from "lucide-react";
+import { Monitor, Mic, MicOff, Play, PlayCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AIFeedbackTooltip } from "@/components/ui/AIFeedbackTooltip";
 
 interface TakeInterviewProps {
     question: QuestionData;
     onAnswer: (answer: string) => void;
+    reviewMode?: boolean;
+    userAnswer?: string;
+    correctAnswer?: string; // Usually N/A for interview
+    aiFeedback?: string;
 }
 
-type FlowState = 'initial' | 'playing' | 'waiting' | 'recording' | 'complete';
+type FlowState = 'initial' | 'playing' | 'waiting' | 'recording' | 'complete' | 'review';
 
-export default function TakeInterview({ question, onAnswer }: TakeInterviewProps) {
-    const [flowState, setFlowState] = useState<FlowState>('initial');
+export default function TakeInterview({
+    question,
+    onAnswer,
+    reviewMode = false,
+    userAnswer = "",
+    aiFeedback = ""
+}: TakeInterviewProps) {
+    const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'review' : 'initial');
     const [countdown, setCountdown] = useState(0);
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
@@ -25,13 +36,15 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
     const streamRef = useRef<MediaStream | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const interviewerQuestion = question.text;
+    const interviewerQuestion = question.text; // The question text
     const PREP_DELAY = 1; // 1 second after question
     const RECORDING_TIME = 45; // 45 seconds to answer
 
     useEffect(() => {
-        // Auto-start flow on mount
-        handleStartFlow();
+        // Auto-start flow on mount only if not reviewing
+        if (!reviewMode) {
+            handleStartFlow();
+        }
 
         return () => {
             stopSpeaking();
@@ -40,7 +53,7 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
                 clearInterval(countdownIntervalRef.current);
             }
         };
-    }, [question.id]);
+    }, [question.id, reviewMode]);
 
     const handleStartFlow = () => {
         setFlowState('playing');
@@ -66,18 +79,17 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
     };
 
     const playBeep = () => {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = 800;
-        gainNode.gain.value = 0.3;
-
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 800;
+            gainNode.gain.value = 0.3;
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (e) { }
     };
 
     const startRecording = async () => {
@@ -98,6 +110,9 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
             mediaRecorder.onstop = async () => {
                 const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 setRecordedBlob(blob);
+                // Keep 'recording' state until upload finishes or just go to complete
+                // Actually we should go to complete immediately for UX, upload in background often better,
+                // but here we block slightly.
                 await handleUpload(blob);
             };
 
@@ -137,28 +152,40 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
 
     const handleUpload = async (blob: Blob) => {
         setFlowState('complete');
-
         const url = await uploadAudioResponse(blob, 'anonymous_user', 'toefl');
-
         if (url) {
-            console.log("Interview response uploaded:", url);
             onAnswer(url);
         } else {
             console.error("Upload failed");
-            alert("Failed to upload interview response.");
+            // alert("Failed to upload interview response.");
         }
     };
 
+    const handleReplayQuestion = () => {
+        speakText(interviewerQuestion || "");
+    };
+
     return (
-        <QuestionContainer question={question}>
-            <div className="flex flex-col min-h-[500px] max-w-4xl mx-auto">
+        <QuestionContainer question={question} hideHeader={reviewMode}>
+            <div className="flex flex-col min-h-[500px] max-w-4xl mx-auto w-full">
                 {/* Header */}
-                <div className="text-center mb-8 space-y-2">
-                    <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                        Speaking Interview
-                    </span>
-                    <h2 className="text-2xl font-bold">Answer the Interviewer</h2>
-                </div>
+                {!reviewMode && (
+                    <div className="text-center mb-8 space-y-2">
+                        <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+                            Speaking Interview
+                        </span>
+                        <h2 className="text-2xl font-bold">Answer the Interviewer</h2>
+                    </div>
+                )}
+
+                {reviewMode && (
+                    <div className="text-center mb-8 space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                            <h2 className="text-2xl font-bold">Interview Review</h2>
+                            {aiFeedback && <AIFeedbackTooltip feedback={aiFeedback} />}
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center flex-1">
 
@@ -177,21 +204,31 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
                             )}
                         </div>
 
-                        {/* Question Text (shows after playing starts) */}
+                        {/* Question Text - HIDDEN in Test Mode, VISIBLE in Review Mode */}
                         <div className={cn(
                             "text-center p-6 rounded-lg bg-muted/20 border max-w-sm transition-all duration-700",
-                            flowState === 'initial' ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
+                            // Only show if Review Mode OR (optional: if explicitly requested to show after playing?)
+                            // User request: "am not supposed to see the text". So hide completely in test mode.
+                            reviewMode ? "opacity-100" : "opacity-0 invisible"
                         )}>
                             <p className="italic text-lg text-foreground/90">"{interviewerQuestion}"</p>
+                            {reviewMode && (
+                                <button
+                                    onClick={handleReplayQuestion}
+                                    className="mt-4 flex items-center justify-center gap-2 w-full text-sm text-primary hover:underline"
+                                >
+                                    <PlayCircle className="w-4 h-4" /> Replay Question
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {/* Right: Status & Timer */}
-                    <div className="flex flex-col items-center justify-center space-y-6">
+                    <div className="flex flex-col items-center justify-center space-y-6 pb-12"> {/* Added padding bottom to push content up */}
 
-                        {flowState === 'initial' && (
+                        {flowState === 'initial' && !reviewMode && (
                             <>
-                                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center -mt-8"> {/* Nudge up */}
                                     <Monitor className="w-10 h-10 text-primary" />
                                 </div>
                                 <h3 className="text-xl font-medium">Preparing interview...</h3>
@@ -200,7 +237,7 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
 
                         {flowState === 'playing' && (
                             <>
-                                <div className="w-24 h-24 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                <div className="w-24 h-24 rounded-full bg-blue-500/20 flex items-center justify-center -mt-8">
                                     <Monitor className="w-12 h-12 text-blue-500 animate-pulse" />
                                 </div>
                                 <h3 className="text-xl font-medium">Listen to the question</h3>
@@ -210,7 +247,7 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
 
                         {flowState === 'waiting' && (
                             <>
-                                <div className="w-24 h-24 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                <div className="w-24 h-24 rounded-full bg-yellow-500/20 flex items-center justify-center -mt-8">
                                     <span className="text-4xl font-bold text-yellow-600">{countdown}</span>
                                 </div>
                                 <h3 className="text-xl font-medium text-yellow-600">Get ready...</h3>
@@ -220,7 +257,7 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
 
                         {flowState === 'recording' && (
                             <>
-                                <div className="w-32 h-32 rounded-full bg-red-500/20 flex items-center justify-center relative">
+                                <div className="w-32 h-32 rounded-full bg-red-500/20 flex items-center justify-center relative -mt-8">
                                     <Mic className="w-16 h-16 text-red-500 animate-pulse" />
                                     <div className="absolute inset-0 rounded-full border-4 border-red-500/30 animate-ping"></div>
                                 </div>
@@ -230,13 +267,34 @@ export default function TakeInterview({ question, onAnswer }: TakeInterviewProps
                             </>
                         )}
 
-                        {flowState === 'complete' && (
+                        {(flowState === 'complete' || flowState === 'review') && (
                             <>
-                                <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center">
-                                    <MicOff className="w-12 h-12 text-green-500" />
-                                </div>
-                                <h3 className="text-xl font-medium text-green-600">Response Recorded!</h3>
-                                <p className="text-sm text-muted-foreground">Your answer has been submitted</p>
+                                {reviewMode ? (
+                                    <div className="w-full space-y-4 -mt-8">
+                                        <div className="p-4 rounded-lg border bg-background">
+                                            <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Your Answer</p>
+                                            {userAnswer && userAnswer.startsWith('http') ? (
+                                                <audio controls src={userAnswer} className="w-full" />
+                                            ) : (
+                                                <p className="text-sm text-muted-foreground italic">No recording available</p>
+                                            )}
+                                        </div>
+                                        <div className="p-4 rounded-lg border bg-blue-50">
+                                            <p className="text-xs font-bold uppercase text-blue-600 mb-2">AI Grading</p>
+                                            <p className="text-sm text-blue-900 leading-relaxed">
+                                                {aiFeedback || "No feedback available yet."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center -mt-8">
+                                            <MicOff className="w-12 h-12 text-green-500" />
+                                        </div>
+                                        <h3 className="text-xl font-medium text-green-600">Response Recorded!</h3>
+                                        <p className="text-sm text-muted-foreground">Your answer has been submitted</p>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>

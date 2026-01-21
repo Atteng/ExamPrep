@@ -273,6 +273,123 @@ export async function generateQuestions(
         }
     }
 
+    // STRATEGY B.2: Contextual Sentence Building (Dialogue)
+    else if (taskType === 'Build a Sentence' || taskType === 'build_sentence') {
+        const buildSentencePrompt = `
+        TASK:
+        Generate ${needed} "Build a Sentence" reading/writing tasks.
+        Topic: ${topic}
+        Level: ${level}
+
+        REQUIREMENTS:
+        1. Context: Provide a short question or statement from "Person A".
+        2. Answer: Provide a grammatically correct response from "Person B" (You).
+        3. Scramble: Break the response into 6-10 shuffled words/phrases.
+        4. Frame: (Optional) If the response has a fixed start/end, specify it.
+
+        JSON OUTPUT FORMAT:
+        [{
+          "id": "uuid",
+          "examType": "${examType}",
+          "section": "writing",
+          "taskType": "Build a Sentence",
+          "prompt": "Make an appropriate sentence.", 
+          "structure": {
+             "context": "Person A: What was the highlight of your trip?",
+             "example": {
+                 "scrambled_parts": ["were", "the", "was", "old city", "showed us around", "who", "tour guides"]
+             }
+          },
+          "answerKey": "The tour guides who showed us around the old city were fantastic."
+        }]
+        `;
+
+        try {
+            const result = await generateWithRetry(async () => await model.generateContent(buildSentencePrompt));
+            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(raw) as QuestionData[];
+
+            const validated = parsed.map(q => ({
+                ...q,
+                id: crypto.randomUUID(),
+                metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+            }));
+            newQuestions.push(...validated);
+
+        } catch (e) {
+            console.error("Build Sentence Context Generation Failed:", e);
+        }
+    }
+
+    // STRATEGY B.3: Listen and Choose a Response (Short Audio -> 1 Question)
+    else if (taskType === 'Listen and Choose a Response' || taskType === 'listening_choose_response') {
+        const chooseResponsePrompt = `
+        TASK:
+        Generate ${needed} "Listen and Choose a Response" items.
+        
+        CONTEXT:
+        - Setting: Campus Life (Library, Dormitory, Professor's Office, Dining Hall, Registrar).
+        - Speakers: Student to Student OR Student to Professor.
+        - Skill: Recognition of implied meaning, idiomatic expressions, and socially appropriate responses.
+
+        REQUIREMENTS:
+        1. Audio Text: A single short question or statement (1-2 sentences). NOT written on screen.
+           - Must use natural spoken English (contractions, "Um", "Actually").
+           - ABSOLUTELY NO SPEAKER LABELS like "Speaker:" or "Person A:" in the text field.
+           - Example: "Didn't I just see you in the library an hour ago?"
+        2. Prompt: "Choose the best response."
+        3. Options: 4 possible responses (A, B, C, D).
+           - Correct: Logically and socially appropriate response (often addresses the *implication* not just the literal words).
+           - Distractor 1 (Keyword Trap): Uses words from the audio (e.g. "library") but effectively nonsense or wrong context.
+           - Distractor 2 (Time/Location Trap): Mentions time/place incorrectly.
+           - Distractor 3 (Opposite/Irrelevant): Completely wrong.
+
+        JSON OUTPUT FORMAT:
+        [{
+          "id": "uuid",
+          "examType": "${examType}",
+          "section": "listening",
+          "taskType": "Listen and Choose a Response",
+          "prompt": "Choose the best response to the statement.", 
+          "text": "I doubt I'll be able to finish this paper by the deadline.",
+          "options": ["You should ask the professor for an extension.", "The deadline is on Friday.", "I have plenty of paper.", "Yes, I finished it yesterday."],
+          "answerKey": "You should ask the professor for an extension."
+        }]
+        `;
+
+        try {
+            const result = await generateWithRetry(async () => await model.generateContent(chooseResponsePrompt));
+            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(raw) as QuestionData[];
+
+            const validated = parsed.map(q => {
+                // Shuffle options to randomize correct answer position
+                if (q.options && q.options.length > 0) {
+                    const correctAnswer = q.answerKey;
+                    const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+
+                    return {
+                        ...q,
+                        id: crypto.randomUUID(),
+                        options: shuffled,
+                        answerKey: correctAnswer, // Keep original text, matching will handle it
+                        metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                    };
+                }
+
+                return {
+                    ...q,
+                    id: crypto.randomUUID(),
+                    metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                };
+            });
+            newQuestions.push(...validated);
+
+        } catch (e) {
+            console.error("Listen & Choose Gen Failed:", e);
+        }
+    }
+
     // STRATEGY C: LISTENING (Multi-Question Sets)
     else if (section === 'listening') {
         const difficulty = 'medium';
@@ -306,11 +423,33 @@ export async function generateQuestions(
             const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(raw) as QuestionData[];
 
-            const validated = parsed.map(q => ({
-                ...q,
-                id: crypto.randomUUID(),
-                metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
-            }));
+            const validated = parsed.map(q => {
+                // Shuffle sub-question options if they exist
+                if (q.questions && q.questions.length > 0) {
+                    const shuffledQuestions = q.questions.map((subQ: any) => {
+                        if (subQ.options && subQ.options.length > 0) {
+                            return {
+                                ...subQ,
+                                options: [...subQ.options].sort(() => Math.random() - 0.5)
+                            };
+                        }
+                        return subQ;
+                    });
+
+                    return {
+                        ...q,
+                        id: crypto.randomUUID(),
+                        questions: shuffledQuestions,
+                        metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                    };
+                }
+
+                return {
+                    ...q,
+                    id: crypto.randomUUID(),
+                    metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                };
+            });
             newQuestions.push(...validated);
 
         } catch (e) {

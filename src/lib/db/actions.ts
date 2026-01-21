@@ -224,6 +224,9 @@ export async function saveLibraryContent(
 
 // --- Topic History (Phase 16) ---
 
+// Reverted to use public client to avoid Client Componet crashes
+// NOTE: This might fail RLS if called from client, but this function is generally expected 
+// to be replaced by the server-side admin version in API routes.
 export async function recordTopic(userId: string, topic: string) {
     if (!userId || !topic) return;
 
@@ -236,7 +239,7 @@ export async function recordTopic(userId: string, topic: string) {
         });
 
     if (error) {
-        console.error('Error recording topic history:', error);
+        console.error('Error recording topic history (Client):', error);
     }
 }
 

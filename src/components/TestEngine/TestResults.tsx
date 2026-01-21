@@ -1,21 +1,26 @@
-import { CheckCircle, XCircle, AlertCircle, Award, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, XCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Import all question renderers
+import ListenChooseResponse from "@/components/questions/renderers/ListenChooseResponse";
+import ListenConversation from "@/components/questions/renderers/ListenConversation";
+import ListenAnnouncement from "@/components/questions/renderers/ListenAnnouncement";
+import ListenAcademicTalk from "@/components/questions/renderers/ListenAcademicTalk";
+import CompleteTheWords from "@/components/questions/renderers/CompleteTheWords";
+import ListenRepeat from "@/components/questions/renderers/ListenRepeat";
+import TakeInterview from "@/components/questions/renderers/TakeInterview";
+// TODO: Import other renderers as needed
 
 interface GradedItem {
     questionId: string;
     section: string;
     taskType: string;
-    score: number; // 0-100 normalized
+    score: number;
     feedback?: string;
-    details?: {
-        strength?: string;
-        weakness?: string;
-        score?: number; // Raw score
-        maxScore?: number;
-    };
     userAnswer: string;
-    questionText?: string;
     correctAnswer?: string;
+    originalQuestion?: any;
     options?: string[];
 }
 
@@ -28,163 +33,232 @@ interface TestResultsProps {
 }
 
 export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, onClose }: TestResultsProps) {
-    // Group Feedback by Section
-    const feedbackItems = gradedItems.filter(i => i.feedback || i.details?.strength);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
-    // Helper to determine status color
-    const getStatusColor = (score: number) => {
-        if (score >= 80) return "text-green-600 bg-green-50 border-green-200";
-        if (score >= 50) return "text-yellow-600 bg-yellow-50 border-yellow-200";
-        return "text-red-600 bg-red-50 border-red-200";
+    if (!gradedItems || gradedItems.length === 0) {
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-background rounded-xl max-w-2xl w-full p-8">
+                    <h2 className="text-2xl font-bold mb-4">No Results Available</h2>
+                    <button onClick={onClose} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const currentItem = gradedItems[currentIndex];
+    // Determine correctness based on score or feedback analysis
+    const isCorrect = currentItem.score >= 80;
+
+    const handleNext = () => {
+        if (currentIndex < gradedItems.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+        }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-card w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border shadow-2xl flex flex-col">
+    const handlePrevious = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+        }
+    };
 
-                {/* Header */}
-                <div className="p-6 border-b flex items-center justify-between bg-muted/20">
-                    <div>
-                        <h2 className="text-2xl font-bold">Test Results</h2>
-                        <p className="text-muted-foreground">Here is how you performed.</p>
+    // Map task type to component
+    const renderQuestion = () => {
+        const question = currentItem.originalQuestion;
+
+        if (!question) {
+            // Fallback if originalQuestion is missing
+            return (
+                <div className="p-8 text-center">
+                    <p className="text-muted-foreground">Question data not available</p>
+                    <div className="mt-4 space-y-2">
+                        <p><strong>Your Answer:</strong> {currentItem.userAnswer}</p>
+                        <p><strong>Correct Answer:</strong> {currentItem.correctAnswer}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="text-right">
-                            <div className="text-sm text-muted-foreground font-medium">Total Score</div>
-                            <div className="text-3xl font-bold text-primary">{totalScore} <span className="text-lg text-muted-foreground">/ {maxScore}</span></div>
+                </div>
+            );
+        }
+
+        const taskType = (currentItem.taskType || question.taskType || "").toLowerCase();
+        console.log("Review Modal - Rendering:", { taskType, originalQ: !!question });
+
+        const commonProps = {
+            question,
+            onAnswer: () => { }, // No-op in review mode
+            reviewMode: true,
+            userAnswer: currentItem.userAnswer,
+            correctAnswer: currentItem.correctAnswer,
+            aiFeedback: currentItem.feedback
+        };
+
+        // Match task type to renderer
+        if (taskType.includes("choose a response")) {
+            return <ListenChooseResponse {...commonProps} />;
+        } else if (taskType.includes("conversation")) {
+            return <ListenConversation {...commonProps} />;
+        } else if (taskType.includes("announcement")) {
+            return <ListenAnnouncement {...commonProps} />;
+        } else if (taskType.includes("academic talk") || taskType.includes("academic_talk")) {
+            return <ListenAcademicTalk {...commonProps} />;
+        } else if (taskType.includes("complete the words") || taskType.includes("complete the sentences")) {
+            return <CompleteTheWords {...commonProps} />;
+        } else if (taskType.includes("listen and repeat") || taskType.includes("repeat sentence")) {
+            return <ListenRepeat {...commonProps} />;
+        } else if (taskType.includes("interview") || taskType.includes("answer the interviewer")) {
+            return <TakeInterview {...commonProps} />;
+        }
+
+        // Fallback for other types (Reading, Writing, Speaking interviews etc)
+        // Ideally we should import generic renderers for these too.
+        return (
+            <div className="p-8 max-w-3xl mx-auto">
+                <div className="bg-muted/30 p-6 rounded-xl border mb-6">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span className="uppercase text-xs bg-primary/10 px-2 py-1 rounded text-primary tracking-wide">
+                            {currentItem.section}
+                        </span>
+                        {taskType}
+                    </h3>
+                    <p className="text-lg leading-relaxed whitespace-pre-wrap">{question.prompt || question.text || "No prompt available"}</p>
+                    {/* Show text if available (for Reading tasks) */}
+                    {question.text && !question.text.startsWith('http') && (
+                        <div className="mt-4 p-4 bg-background rounded border text-sm text-muted-foreground">
+                            {question.text}
                         </div>
-                        <Award className="w-10 h-10 text-primary" />
+                    )}
+                </div>
+
+                <div className="space-y-4">
+                    <div className={cn(
+                        "p-4 rounded-lg border-2",
+                        isCorrect ? "bg-green-50 border-green-500" : "bg-red-50 border-red-500"
+                    )}>
+                        <p className="font-bold text-sm uppercase mb-2 opacity-70">Your Answer:</p>
+                        <p className="font-medium whitespace-pre-wrap">{currentItem.userAnswer}</p>
+                    </div>
+                    {!isCorrect && currentItem.correctAnswer && (
+                        <div className="p-4 bg-green-50 border-2 border-green-500 rounded-lg">
+                            <p className="font-bold text-sm uppercase mb-2 opacity-70 text-green-700">Correct Answer:</p>
+                            <p className="font-medium text-green-800 whitespace-pre-wrap">{currentItem.correctAnswer}</p>
+                        </div>
+                    )}
+                    {currentItem.feedback && (
+                        <div className="p-4 bg-blue-50 border-2 border-blue-500 rounded-lg flex gap-3">
+                            <div className="mt-1">
+                                <CheckCircle className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-sm uppercase mb-1 opacity-70 text-blue-700">Based on your answer:</p>
+                                <p className="text-blue-800">{currentItem.feedback}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const percentage = Math.round((totalScore / maxScore) * 100);
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-background rounded-xl max-w-5xl w-full max-h-[95vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
+                    <div>
+                        <h2 className="text-2xl font-bold">Test Review</h2>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm text-muted-foreground">
+                                Question {currentIndex + 1} of {gradedItems.length}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
+                                {currentItem.section}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        <div className="text-right hidden sm:block">
+                            <div className="text-3xl font-bold tracking-tight">{percentage}%</div>
+                            <div className="text-sm text-muted-foreground mr-1">Score</div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-muted rounded-full transition-colors border border-transparent hover:border-border"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
                     </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-8 flex-1">
+                {/* Score Badge */}
+                <div className={cn(
+                    "px-6 py-3 border-b flex items-center justify-center",
+                    isCorrect ? "bg-green-50/50" : "bg-red-50/50"
+                )}>
+                    <div className="flex items-center gap-2">
+                        {isCorrect ? (
+                            <>
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="font-bold text-green-700">Correct Answer</span>
+                            </>
+                        ) : (
+                            <>
+                                <XCircle className="w-5 h-5 text-red-600" />
+                                <span className="font-bold text-red-700">Incorrect Answer</span>
+                            </>
+                        )}
+                    </div>
+                </div>
 
-                    {/* Section Breakdown */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {Object.entries(sectionScores).map(([section, score]) => (
-                            <div key={section} className="p-4 rounded-lg bg-muted/50 border flex flex-col items-center justify-center text-center">
-                                <div className="text-muted-foreground capitalize text-sm font-medium mb-1">{section}</div>
-                                <div className="text-2xl font-bold">{score} <span className="text-xs text-muted-foreground">/ 30</span></div>
-                            </div>
+                {/* Question Content - Scrollable */}
+                <div className="flex-1 overflow-y-auto bg-muted/5 p-4 md:p-8">
+                    {renderQuestion()}
+                </div>
+
+                {/* Navigation Footer */}
+                <div className="p-6 border-t bg-background flex items-center justify-between shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+                    <button
+                        onClick={handlePrevious}
+                        disabled={currentIndex === 0}
+                        className={cn(
+                            "flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all",
+                            currentIndex === 0
+                                ? "opacity-30 cursor-not-allowed text-muted-foreground"
+                                : "hover:bg-muted text-foreground border border-border/50 shadow-sm"
+                        )}
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                        Previous
+                    </button>
+
+                    <div className="flex items-center gap-1.5 hidden sm:flex">
+                        {gradedItems.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentIndex(idx)}
+                                className={cn(
+                                    "transition-all duration-300 rounded-full",
+                                    idx === currentIndex
+                                        ? "bg-primary w-8 h-2.5"
+                                        : "bg-muted-foreground/20 w-2.5 h-2.5 hover:bg-muted-foreground/40"
+                                )}
+                            />
                         ))}
                     </div>
 
-                    {/* Detailed Feedback List */}
-                    {feedbackItems.length > 0 && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5" />
-                                AI Feedback & Analysis
-                            </h3>
-                            <div className="space-y-4">
-                                {feedbackItems.map((item, idx) => (
-                                    <div key={idx} className="border rounded-lg p-5 space-y-3 bg-card">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="uppercase text-xs font-bold px-2 py-1 rounded bg-primary/10 text-primary">
-                                                    {item.section}
-                                                </span>
-                                                <span className="font-medium text-sm text-muted-foreground">
-                                                    {item.taskType}
-                                                </span>
-                                            </div>
-                                            {item.details && (
-                                                <span className="font-bold text-sm">
-                                                    Score: {item.details.score}/{item.details.maxScore}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Feedback Text */}
-                                        {item.feedback && (
-                                            <p className="text-sm italic border-l-2 border-primary/50 pl-3">
-                                                "{item.feedback}"
-                                            </p>
-                                        )}
-
-                                        {/* Strength / Weakness */}
-                                        {item.details && (
-                                            <div className="grid md:grid-cols-2 gap-4 text-sm pt-2">
-                                                {item.details.strength && (
-                                                    <div className="flex gap-2 text-green-700 bg-green-50 p-2 rounded">
-                                                        <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                                        <div>
-                                                            <span className="font-semibold block">Strength</span>
-                                                            {item.details.strength}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {item.details.weakness && (
-                                                    <div className="flex gap-2 text-red-700 bg-red-50 p-2 rounded">
-                                                        <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                                        <div>
-                                                            <span className="font-semibold block">Improvement Area</span>
-                                                            {item.details.weakness}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {/* Fallback for general feedback if no specific strength/weakness */}
-                                                {!item.details.strength && !item.details.weakness && item.feedback && (
-                                                    <div className="col-span-2 text-muted-foreground">
-                                                        {item.feedback}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {feedbackItems.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <p>No detailed feedback available for this test session.</p>
-                        </div>
-                    )}
-
-                    {/* Detailed Review List */}
-                    <div className="p-6 border-t bg-muted/5 space-y-4">
-                        <h3 className="text-lg font-bold">Question Review</h3>
-                        <div className="space-y-4">
-                            {gradedItems.map((item, idx) => (
-                                <div key={idx} className={cn("p-4 rounded-lg border", getStatusColor(item.score))}>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-sm font-bold uppercase opacity-80">{item.taskType}</span>
-                                        <span className="font-bold">{item.score}%</span>
-                                    </div>
-
-                                    <p className="font-medium mb-3 text-foreground">{item.questionText || "Question Prompt Missing"}</p>
-
-                                    <div className="grid md:grid-cols-2 gap-4 text-sm text-foreground">
-                                        <div className="bg-background/50 p-2 rounded">
-                                            <span className="block text-xs uppercase font-bold text-muted-foreground mb-1">Your Answer</span>
-                                            <p>{typeof item.userAnswer === 'string' ? item.userAnswer : JSON.stringify(item.userAnswer)}</p>
-                                        </div>
-                                        {item.correctAnswer && (
-                                            <div className="bg-background/50 p-2 rounded">
-                                                <span className="block text-xs uppercase font-bold text-muted-foreground mb-1">Correct Answer</span>
-                                                <p>{typeof item.correctAnswer === 'string' ? item.correctAnswer : JSON.stringify(item.correctAnswer)}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                </div>
-
-
-                {/* Footer */}
-                <div className="p-6 border-t bg-muted/20 flex justify-end">
                     <button
-                        onClick={onClose}
-                        className="flex items-center px-6 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
+                        onClick={currentIndex === gradedItems.length - 1 ? onClose : handleNext}
+                        className={cn(
+                            "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium shadow-md transition-all active:scale-95",
+                            currentIndex === gradedItems.length - 1
+                                ? "bg-zinc-800 text-white hover:bg-zinc-700" // Finish Button
+                                : "bg-primary text-primary-foreground hover:bg-primary/90" // Next Button
+                        )}
                     >
-                        Return to Dashboard
-                        <ArrowRight className="ml-2 w-4 h-4" />
+                        {currentIndex === gradedItems.length - 1 ? "Finish" : "Next"}
+                        {currentIndex < gradedItems.length - 1 && <ChevronRight className="w-5 h-5" />}
                     </button>
                 </div>
             </div>

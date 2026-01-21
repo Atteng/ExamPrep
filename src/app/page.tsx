@@ -137,127 +137,145 @@ export default function Home() {
       color: "bg-blue-600",
       image: "/toefl logo.svg",
       countdown: toeflDays,
-      stats: { taken: 0, avg: "N/A" }
+      stats: { taken: 0, avg: "N/A" },
+      comingSoon: false
     },
     {
       id: "gre",
       title: "GRE General",
-      badge: priorityExamId === 'gre' ? "Next Exam" : meta.greDate ? "Scheduled" : "Available",
+      badge: "Coming Soon",
       target: meta.greVerbalTarget ? `V${meta.greVerbalTarget} Q${meta.greQuantTarget}` : "Q155+ W4.0",
       date: formatDate(meta.greDate),
       color: "bg-purple-600",
       image: "/GRE_logo_2024.svg",
       countdown: greDays,
-      stats: { taken: 0, avg: "N/A" }
+      stats: { taken: 0, avg: "N/A" },
+      comingSoon: true
     },
     {
       id: "german",
       title: "German",
-      badge: priorityExamId === 'german' ? "Next Exam" : meta.germanDate ? "Scheduled" : "Available",
+      badge: "Coming Soon",
       target: meta.germanLevel || "C1",
       date: formatDate(meta.germanDate),
       color: "bg-yellow-600",
       image: "/german flag.png",
       countdown: germanDays,
-      stats: { taken: 0, avg: "N/A" }
+      stats: { taken: 0, avg: "N/A" },
+      comingSoon: true
     }
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" >
       {/* Payment Success/Error Banner */}
-      <Suspense fallback={null}>
+      < Suspense fallback={null} >
         <PaymentFeedback />
-      </Suspense>
+      </Suspense >
 
       {/* Welcome Section */}
-      <div className="flex flex-col space-y-2">
+      < div className="flex flex-col space-y-2" >
         <h1 className="text-3xl font-bold tracking-tight">Welcome back, {displayName}</h1>
         <p className="text-muted-foreground">
           You&apos;re making great progress towards your goals.
         </p>
-      </div>
+      </div >
 
       {/* Quick Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Weekly Study", value: `${stats.studyHours}/${studyGoal}h`, icon: Clock, trend: "Keep it up" },
-          { label: "Questions", value: `${stats.questionsAnswered}`, icon: BookOpen, trend: "Total answered" },
-          { label: "Avg Accuracy", value: `${stats.avgAccuracy}%`, icon: Target, trend: "Overall performance" },
-          {
-            label: "Next Exam",
-            value: nextExamDays === "N/A" ? "N/A" : `${nextExamDays}d`,
-            icon: Trophy,
-            trend: nextExamLabel
-          },
-        ].map((stat, i) => (
-          <div key={i} className="rounded-xl border bg-card text-card-foreground shadow p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <span className="text-sm font-medium">{stat.label}</span>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+      < div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" >
+        {
+          [
+            { label: "Weekly Study", value: `${stats.studyHours}/${studyGoal}h`, icon: Clock, trend: "Keep it up" },
+            { label: "Questions", value: `${stats.questionsAnswered}`, icon: BookOpen, trend: "Total answered" },
+            { label: "Avg Accuracy", value: `${stats.avgAccuracy}%`, icon: Target, trend: "Overall performance" },
+            {
+              label: "Next Exam",
+              value: nextExamDays === "N/A" ? "N/A" : `${nextExamDays}d`,
+              icon: Trophy,
+              trend: nextExamLabel
+            },
+          ].map((stat, i) => (
+            <div key={i} className="rounded-xl border bg-card text-card-foreground shadow p-6">
+              <div className="flex items-center justify-between space-y-0 pb-2">
+                <span className="text-sm font-medium">{stat.label}</span>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{stat.trend}</p>
             </div>
-            <div className="text-2xl font-bold">{stat.value}</div>
-            <p className="text-xs text-muted-foreground mt-1">{stat.trend}</p>
-          </div>
-        ))}
-      </div>
+          ))
+        }
+      </div >
 
       {/* Exam Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {exams.map((exam) => (
-          <div key={exam.id} className="group relative overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={exam.image} alt={exam.title} className="h-full w-full object-contain" />
+      < div className="grid gap-6 md:grid-cols-3" >
+        {
+          exams.map((exam) => (
+            <div key={exam.id} className="group relative overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-10 w-10 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={exam.image} alt={exam.title} className="h-full w-full object-contain" />
+                  </div>
+                  <span className={cn(
+                    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
+                    exam.comingSoon
+                      ? "bg-muted text-muted-foreground border-transparent"
+                      : exam.id === priorityExamId
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-transparent"
+                  )}>
+                    {exam.badge}
+                  </span>
                 </div>
-                <span className={cn(
-                  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
-                  exam.id === priorityExamId
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted text-muted-foreground border-transparent"
-                )}>
-                  {exam.badge}
-                </span>
+
+                <h3 className="text-xl font-bold mb-1">{exam.title}</h3>
+                {exam.countdown !== null && exam.countdown >= 0 && (
+                  <p className="text-sm text-green-600 font-medium mb-3">
+                    {exam.countdown === 0 ? "Today!" : `${exam.countdown} days left`}
+                  </p>
+                )}
+                {(exam.countdown === null || exam.countdown < 0) && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {exam.date === "Not Scheduled" ? "Not Scheduled" : "Exam Passed"}
+                  </p>
+                )}
+
+                <div className="space-y-2 text-sm mt-4">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Target</span>
+                    <span className="font-medium">{exam.target}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Date</span>
+                    <span className="font-medium">{exam.date}</span>
+                  </div>
+                </div>
               </div>
 
-              <h3 className="text-xl font-bold mb-1">{exam.title}</h3>
-              {exam.countdown !== null && exam.countdown >= 0 && (
-                <p className="text-sm text-green-600 font-medium mb-3">
-                  {exam.countdown === 0 ? "Today!" : `${exam.countdown} days left`}
-                </p>
-              )}
-              {(exam.countdown === null || exam.countdown < 0) && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  {exam.date === "Not Scheduled" ? "Not Scheduled" : "Exam Passed"}
-                </p>
-              )}
-
-              <div className="space-y-2 text-sm mt-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Target</span>
-                  <span className="font-medium">{exam.target}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date</span>
-                  <span className="font-medium">{exam.date}</span>
-                </div>
+              <div className="bg-muted/50 p-4">
+                {exam.comingSoon ? (
+                  <button
+                    disabled
+                    className="flex items-center justify-center w-full rounded-md bg-muted px-4 py-2 text-sm font-medium text-muted-foreground cursor-not-allowed"
+                  >
+                    Coming Soon
+                  </button>
+                ) : (
+                  <Link
+                    href="/practice"
+                    className="flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    Practice Now
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                )}
               </div>
             </div>
-
-            <div className="bg-muted/50 p-4">
-              <Link
-                href="/practice"
-                className="flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                Practice Now
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))
+        }
+      </div >
+    </div >
   );
 }

@@ -29,9 +29,10 @@ interface TestEngineProps {
     onComplete?: (results: any) => void;
     examType?: string; // e.g., 'toefl'
     section?: string; // e.g., 'reading', 'listening', 'speaking'
+    onReview?: () => void;
 }
 
-export function TestEngine({ questions, timeLimit, title, onExit, onComplete, examType, section }: TestEngineProps) {
+export function TestEngine({ questions, timeLimit, title, onExit, onComplete, examType, section, onReview }: TestEngineProps) {
     const {
         currentIndex,
         currentQuestion,
@@ -75,12 +76,23 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
                 <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Section Completed!</h2>
                 <p className="text-muted-foreground mb-6">Your answers have been saved.</p>
-                <button
-                    onClick={onExit}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md font-medium"
-                >
-                    Return to Dashboard
-                </button>
+
+                <div className="flex flex-col gap-3 w-full max-w-xs">
+                    {onReview && (
+                        <button
+                            onClick={onReview}
+                            className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80 px-6 py-2 rounded-md font-medium border border-border"
+                        >
+                            Review Performance
+                        </button>
+                    )}
+                    <button
+                        onClick={onExit}
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md font-medium"
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
             </div>
         );
     }

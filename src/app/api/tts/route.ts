@@ -86,49 +86,84 @@ export async function POST(request: Request) {
         // Since I cannot verify the exact "Achernar" existence in the standard public doc without searching, 
         // I will implement a robust fetch that tries the user's params.
 
+        // 1. First Attempt: User Request (Beta/Preview)
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    audioConfig: { audioEncoding: "MP3", pitch: 0, speakingRate: 1 },
+                    input: { text: text },
+                    voice: {
+                        languageCode: "en-US",
+                        modelName: "gemini-2.5-flash-lite-preview-tts",
+                        name: voiceId || "en-US-Achernar-Turbo"
+                    }
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.audioContent) return NextResponse.json({ audioContent: data.audioContent });
+            } else {
+                console.warn(`TTS Beta Attempt Failed: ${response.status} ${response.statusText}`);
+            }
+        } catch (e) {
+            console.warn("TTS Beta Attempt Error:", e);
+        }
+
+        // 2. Second Attempt: Standard Journey Voice (High Quality)
+        console.log("Retrying with Standard Journey Voice...");
+        try {
+            const fallbackVoice = voiceId?.includes('male') ? 'en-US-Journey-D' : 'en-US-Journey-F';
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    audioConfig: { audioEncoding: "MP3", pitch: 0, speakingRate: 1 },
+                    input: { text: text },
+                    voice: {
+                        languageCode: "en-US",
+                        name: fallbackVoice
+                    }
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.audioContent) return NextResponse.json({ audioContent: data.audioContent });
+            } else {
+                console.warn(`TTS Journey Attempt Failed: ${response.status}`);
+            }
+        } catch (e) {
+            console.warn("TTS Journey Attempt Error:", e);
+        }
+
+        // 3. Third Attempt: Standard Neural2 Voice (Reliable)
+        console.log("Retrying with Standard Neural2 Voice...");
         const response = await fetch(url, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                audioConfig: {
-                    audioEncoding: "MP3",
-                    pitch: 0,
-                    speakingRate: 1
-                },
-                input: {
-                    text: text
-                },
+                audioConfig: { audioEncoding: "MP3", pitch: 0, speakingRate: 1 },
+                input: { text: text },
                 voice: {
                     languageCode: "en-US",
-                    // Use modelName from user request if possible, or default to the preview
-                    modelName: "gemini-2.5-flash-lite-preview-tts",
-                    // Use the voiceId sent from frontend (handles gender), or fallback to a default
-                    name: voiceId || "en-US-Achernar-Turbo"
+                    name: voiceId?.includes('male') ? 'en-US-Neural2-D' : 'en-US-Neural2-C'
                 }
             })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Google TTS API Error:", errorText);
-
-            // Fallback strategy: If 400/404, maybe retry with strictly standard voice?
-            return NextResponse.json({ error: `TTS Provider Error: ${response.statusText}`, details: errorText }, { status: response.status });
+            throw new Error(`All TTS Attempts Failed. Last Error: ${errorText}`);
         }
 
         const data = await response.json();
-        const audioContent = data.audioContent;
-
-        if (!audioContent) {
-            return NextResponse.json({ error: "No audio content received" }, { status: 500 });
-        }
-
-        return NextResponse.json({ audioContent });
+        return NextResponse.json({ audioContent: data.audioContent });
 
     } catch (error: any) {
-        console.error("TTS Proxy Error:", error);
+        console.error("TTS Proxy Critical Failure:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

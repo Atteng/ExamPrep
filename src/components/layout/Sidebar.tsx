@@ -11,6 +11,7 @@ import { getUserProfile } from "@/lib/db/actions";
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname();
     const router = useRouter();
+    const [isGuest, setIsGuest] = useState(true);
     const [isPro, setIsPro] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
@@ -19,8 +20,11 @@ export function Sidebar({ className }: { className?: string }) {
         const checkStatus = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setIsGuest(false);
                 const profile = await getUserProfile(user.id);
                 setIsPro(!!profile?.is_pro);
+            } else {
+                setIsGuest(true);
             }
             setLoading(false);
         };
@@ -65,12 +69,21 @@ export function Sidebar({ className }: { className?: string }) {
     };
 
     const links = [
-        { href: "/", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/practice", label: "Practice Mode", icon: GraduationCap },
-        { href: "/schools", label: "School Tracker", icon: School },
-        { href: "/analytics", label: "Analytics", icon: BarChart3 },
-        { href: "/profile", label: "Settings", icon: Settings },
+        { href: "/", label: "Dashboard", icon: LayoutDashboard, public: true },
+        { href: "/practice", label: "Practice Mode", icon: GraduationCap, public: true },
+        { href: "/schools", label: "School Tracker", icon: School, public: false },
+        { href: "/analytics", label: "Analytics", icon: BarChart3, public: false },
+        { href: "/profile", label: "Settings", icon: Settings, public: false },
     ];
+
+    const handleProtectedClick = (e: React.MouseEvent, label: string) => {
+        if (isGuest) {
+            e.preventDefault();
+            if (confirm(`Please log in to access your ${label}.\n\nWould you like to log in now?`)) {
+                router.push("/login");
+            }
+        }
+    };
 
     return (
         <div className={cn("pb-12 min-h-screen border-r bg-background", className)}>
@@ -83,17 +96,35 @@ export function Sidebar({ className }: { className?: string }) {
                         {links.map((link) => {
                             const Icon = link.icon;
                             const isActive = pathname === link.href;
+                            const isLocked = isGuest && !link.public;
+
                             return (
                                 <Link
                                     key={link.href}
                                     href={link.href}
+                                    onClick={(e) => isLocked && handleProtectedClick(e, link.label)}
                                     className={cn(
-                                        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                                        isActive ? "bg-accent text-accent-foreground" : "transparent"
+                                        "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                        isActive
+                                            ? "bg-accent text-accent-foreground"
+                                            : "hover:bg-accent hover:text-accent-foreground",
+                                        isLocked && "text-muted-foreground hover:bg-transparent cursor-pointer opacity-70"
                                     )}
                                 >
                                     <Icon className="mr-2 h-4 w-4" />
-                                    {link.label}
+                                    <span>{link.label}</span>
+                                    {isLocked && (
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            strokeWidth={1.5}
+                                            stroke="currentColor"
+                                            className="ml-auto w-3 h-3 opacity-50"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                        </svg>
+                                    )}
                                 </Link>
                             );
                         })}

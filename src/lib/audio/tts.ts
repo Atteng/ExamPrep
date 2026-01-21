@@ -6,10 +6,20 @@ type VoiceGender = 'male' | 'female' | 'neutral';
 // Key: text, Value: Blob URL
 const audioCache = new Map<string, string>();
 
+// Circuit breaker to prevent endless 500 logs if API is down/unauthorized
+let apiFailureCount = 0;
+const MAX_API_FAILURES = 3;
+
 /**
  * Fetch audio from our API proxy
  */
 async function fetchTTS(text: string, gender: VoiceGender = 'neutral'): Promise<string> {
+    // 0. Circuit Breaker
+    if (apiFailureCount >= MAX_API_FAILURES) {
+        // Silent fallback after threshold
+        return "";
+    }
+
     // 1. Check Cache
     const cacheKey = `${text}-${gender}`;
     if (audioCache.has(cacheKey)) {
@@ -29,7 +39,12 @@ async function fetchTTS(text: string, gender: VoiceGender = 'neutral'): Promise<
             })
         });
 
-        if (!response.ok) throw new Error("TTS API Failed");
+        if (!response.ok) {
+            // Count failure but don't throw yet, simply return empty to trigger fallback
+            apiFailureCount++;
+            console.warn(`TTS API Warning (${apiFailureCount}/${MAX_API_FAILURES}): Endpoint returned ${response.status}. Falling back to browser.`);
+            return "";
+        }
 
         const data = await response.json();
         const audioContent = data.audioContent; // Base64 string
@@ -46,10 +61,14 @@ async function fetchTTS(text: string, gender: VoiceGender = 'neutral'): Promise<
 
         // 4. Cache it
         audioCache.set(cacheKey, url);
+
+        // Reset failures on success
+        apiFailureCount = 0;
         return url;
 
     } catch (err) {
-        console.error("TTS Fetch Error, falling back to browser:", err);
+        apiFailureCount++;
+        console.warn(`TTS Connection Warning (${apiFailureCount}/${MAX_API_FAILURES}):`, err);
         return ""; // Empty string triggers fallback
     }
 }
@@ -130,17 +149,20 @@ export const speakConversation = async (transcript: string, onEnd?: () => void) 
     const lines = transcript.split('\n').filter(line => line.trim());
 
     for (const line of lines) {
-        // Parse Speaker
+        // Parse and REMOVE Speaker labels
         const colonIndex = line.indexOf(':');
         let text = line;
         let gender: VoiceGender = 'neutral';
 
         if (colonIndex > 0 && colonIndex < 20) {
             const speaker = line.substring(0, colonIndex).trim().toLowerCase();
-            text = line.substring(colonIndex + 1).trim();
+            text = line.substring(colonIndex + 1).trim(); // This strips the "Speaker:" part
             if (speaker.includes('woman') || speaker.includes('female')) gender = 'female';
             else if (speaker.includes('man') || speaker.includes('male')) gender = 'male';
         }
+
+        // Additional safety: remove common speaker prefixes if they slipped through
+        text = text.replace(/^(Speaker|Person|Student|Professor|Man|Woman):\s*/i, '').trim();
 
         // Try API
         const url = await fetchTTS(text, gender);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateQuestions, generateFullTest } from "@/lib/generators/questionGenerator";
-import { getRecentTopics, recordTopic } from "@/lib/db/actions";
+import { getRecentTopics } from "@/lib/db/actions";
+import { recordTopic } from "@/lib/db/admin-actions";
 import { TEST_TEMPLATES } from "@/lib/generators/testTemplates";
 
 export async function POST(request: Request) {
