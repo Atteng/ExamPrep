@@ -302,16 +302,41 @@ export default function AnalyticsPage() {
                                         <div className="flex flex-col md:flex-row gap-8">
                                             <div className="md:w-1/3 flex flex-col justify-center">
                                                 <div className="text-sm opacity-70 uppercase tracking-wide mb-2">Sum of Highest Section Scores</div>
-                                                <div className="text-6xl font-bold mb-2">{calculateSuperScore(examResults)}</div>
-                                                <div className="text-sm opacity-70">out of 120</div>
+                                                <div className="text-6xl font-bold mb-2">
+                                                    {displayMode === 'standard'
+                                                        ? calculateSuperScore(examResults)
+                                                        : toBandScore(calculateSuperScore(examResults), 120)
+                                                    }
+                                                </div>
+                                                <div className="text-sm opacity-70">out of {displayMode === 'standard' ? '120' : '6.0'}</div>
                                             </div>
                                             <div className="md:w-2/3">
                                                 <div className="text-sm mb-4 opacity-80">Your highest section scores from all {examResults.length} test(s) on record</div>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    {renderSuperScoreSection('Reading (0-30)', getBestScore(examResults, 'reading'))}
-                                                    {renderSuperScoreSection('Listening (0-30)', getBestScore(examResults, 'listening'))}
-                                                    {renderSuperScoreSection('Speaking (0-30)', getBestScore(examResults, 'speaking'))}
-                                                    {renderSuperScoreSection('Writing (0-30)', getBestScore(examResults, 'writing'))}
+                                                    {renderSuperScoreSection(
+                                                        displayMode === 'standard' ? 'Reading (0-30)' : 'Reading (Band)',
+                                                        getBestScore(examResults, 'reading'),
+                                                        30,
+                                                        displayMode
+                                                    )}
+                                                    {renderSuperScoreSection(
+                                                        displayMode === 'standard' ? 'Listening (0-30)' : 'Listening (Band)',
+                                                        getBestScore(examResults, 'listening'),
+                                                        30,
+                                                        displayMode
+                                                    )}
+                                                    {renderSuperScoreSection(
+                                                        displayMode === 'standard' ? 'Speaking (0-30)' : 'Speaking (Band)',
+                                                        getBestScore(examResults, 'speaking'),
+                                                        30,
+                                                        displayMode
+                                                    )}
+                                                    {renderSuperScoreSection(
+                                                        displayMode === 'standard' ? 'Writing (0-30)' : 'Writing (Band)',
+                                                        getBestScore(examResults, 'writing'),
+                                                        30,
+                                                        displayMode
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -348,11 +373,12 @@ function renderSectionBox(title: string, score: number, max: number, mode: 'stan
     );
 }
 
-function renderSuperScoreSection(title: string, score: number) {
+function renderSuperScoreSection(title: string, score: number, max: number = 30, mode: 'standard' | 'band' = 'standard') {
+    const displayScore = mode === 'standard' ? score : toBandScore(score, max);
     return (
         <div className="bg-white/10 rounded-lg p-3">
             <div className="text-xs opacity-70 mb-1">{title}</div>
-            <div className="text-2xl font-bold">{score}</div>
+            <div className="text-2xl font-bold">{displayScore}</div>
         </div>
     );
 }

@@ -523,53 +523,50 @@ export default function PracticePage() {
                                             correctAnswer,
                                             // Pass full original question for renderers (crucial for audio/context)
                                             originalQuestion: originalQ,
-                                            options: originalQ?.options || []
+                                            options: originalQ?.options || [],
+                                            // Ensure section is populated from original question if missing in result
+                                            section: result.section || originalQ?.section
                                         };
                                     });
 
                                     setShowResults(true);
 
-                                    // Calculate Scores (re-calculate from hydrated to be safe)
-                                    let totalEarned = 0;
-                                    let totalPossible = 0;
-                                    const sectionScores = { reading: 0, listening: 0, speaking: 0, writing: 0 };
+                                    // Calculate Scores (Correctly this time)
+                                    // Strategy: Calculate average % per section, scale to 30, then sum for total (max 120)
 
-                                    hydratedResults.forEach((item: any) => {
-                                        const max = item.details?.maxScore || 1; // Default to 1 if missing
-                                        const earned = (item.score / 100) * max;
-
-                                        totalEarned += earned;
-                                        totalPossible += max;
-
-                                        // Section Scores
-                                        const sec = item.section as keyof typeof sectionScores;
-                                        if (sectionScores[sec] !== undefined) {
-                                            sectionScores[sec] += (item.score / 100) * 1; // Simplified section scoring
-                                        }
-                                    });
-
+                                    const sectionSums = { reading: 0, listening: 0, speaking: 0, writing: 0 };
                                     const sectionCounts = { reading: 0, listening: 0, speaking: 0, writing: 0 };
 
-                                    // 3. Aggregate Scores
-                                    gradedAnswers.forEach((g: any) => {
-                                        if (!g) return;
-                                        totalEarned += g.score;
-                                        totalPossible += 100;
-                                        if (sectionCounts[g.section as keyof typeof sectionCounts] !== undefined) {
-                                            sectionScores[g.section as keyof typeof sectionCounts] += g.score;
-                                            sectionCounts[g.section as keyof typeof sectionCounts] += 1;
+                                    hydratedResults.forEach((item: any) => {
+                                        // item.score is 0-100 (from AI)
+                                        // item.section should be 'reading', 'listening', etc.
+                                        let sec = (item.section || '').toLowerCase();
+
+                                        // Normalize section names just in case
+                                        if (sec.includes('reading')) sec = 'reading';
+                                        else if (sec.includes('listening')) sec = 'listening';
+                                        else if (sec.includes('speaking')) sec = 'speaking';
+                                        else if (sec.includes('writing')) sec = 'writing';
+
+                                        if (sectionSums[sec as keyof typeof sectionSums] !== undefined) {
+                                            sectionSums[sec as keyof typeof sectionSums] += (item.score || 0);
+                                            sectionCounts[sec as keyof typeof sectionCounts] += 1;
                                         }
                                     });
 
-                                    const rawPercentage = totalPossible > 0 ? (totalEarned / totalPossible) : 0;
-                                    const finalScore = Math.round(rawPercentage * 120);
-
                                     const finalSectionScores = {
-                                        reading: sectionCounts.reading ? Math.round((sectionScores.reading / (sectionCounts.reading * 100)) * 30) : 0,
-                                        listening: sectionCounts.listening ? Math.round((sectionScores.listening / (sectionCounts.listening * 100)) * 30) : 0,
-                                        speaking: sectionCounts.speaking ? Math.round((sectionScores.speaking / (sectionCounts.speaking * 100)) * 30) : 0,
-                                        writing: sectionCounts.writing ? Math.round((sectionScores.writing / (sectionCounts.writing * 100)) * 30) : 0,
+                                        reading: sectionCounts.reading ? Math.round((sectionSums.reading / sectionCounts.reading) / 100 * 30) : 0,
+                                        listening: sectionCounts.listening ? Math.round((sectionSums.listening / sectionCounts.listening) / 100 * 30) : 0,
+                                        speaking: sectionCounts.speaking ? Math.round((sectionSums.speaking / sectionCounts.speaking) / 100 * 30) : 0,
+                                        writing: sectionCounts.writing ? Math.round((sectionSums.writing / sectionCounts.writing) / 100 * 30) : 0,
                                     };
+
+                                    // Total Score is sum of section scores (0-120)
+                                    const finalScore =
+                                        finalSectionScores.reading +
+                                        finalSectionScores.listening +
+                                        finalSectionScores.speaking +
+                                        finalSectionScores.writing;
 
                                     // 4. Save to Supabase
                                     await saveExamResult({
