@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-import AuthGuard from "@/components/auth/AuthGuard";
+import ClientLayout from "@/components/layout/ClientLayout";
 
 export const metadata: Metadata = {
   title: "ExamPrep",
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-background text-foreground">
-        <AuthGuard>{children}</AuthGuard>
+        <ClientLayout>{children}</ClientLayout>
         <Analytics />
       </body>
     </html>

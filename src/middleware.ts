@@ -56,12 +56,19 @@ export async function middleware(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Protect routes
-    if (!user && (request.nextUrl.pathname.startsWith('/practice') || request.nextUrl.pathname.startsWith('/analytics') || request.nextUrl.pathname.startsWith('/profile'))) {
+    // Protected routes that require authentication
+    // Note: Practice and Schools are now Public (Freemium)
+    const protectedRoutes = ['/analytics', '/profile'];
+    const isProtectedRoute = protectedRoutes.some(route =>
+        request.nextUrl.pathname.startsWith(route)
+    );
+
+    // Redirect unauthenticated users from protected routes to login
+    if (!user && isProtectedRoute) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Redirect if logged in
+    // Redirect authenticated users away from login page
     if (user && request.nextUrl.pathname === '/login') {
         return NextResponse.redirect(new URL('/', request.url))
     }

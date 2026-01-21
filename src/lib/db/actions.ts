@@ -6,7 +6,11 @@ export interface UserProfile {
     full_name?: string;
     target_exam?: 'toefl' | 'gre' | 'german';
     study_goal_hours?: number;
-    metadata?: Record<string, any>; // For storing exam dates and targets
+    metadata?: Record<string, any>;
+    is_pro?: boolean;
+    paystack_customer_code?: string;
+    paystack_sub_code?: string;
+    subscription_status?: string;
 }
 
 export interface ExamResult {
@@ -107,6 +111,47 @@ export async function saveGeneratedQuestions(questions: GeneratedQuestion[]) {
         // Don't throw, just log - caching failure shouldn't stop the app
     }
     return data;
+}
+
+
+
+export async function findGlobalQuestions(
+    examType: string,
+    section: string,
+    taskType: string,
+    limit: number = 1,
+    difficulty: string = 'B2'
+) {
+    // 1. Fetch pool of candidates
+    // Note: 'contains' is used for JSONB matches if you store taskType in metadata or content
+    // But our schema likely has these as columns or inside the JSON 'content'
+
+    // Check if taskType is a column or inside content. Assuming 'taskType' is passed as argument
+    // but schema in 'saveGeneratedQuestions' implies we just store { exam_type, section, content }.
+    // We need to query inside the JSONB 'content' column to match taskType.
+
+    const { data, error } = await supabase
+        .from('generated_questions')
+        .select('*')
+        .eq('exam_type', examType)
+        .eq('section', section)
+        .contains('content', { taskType: taskType }) // JSONB containment check
+        .limit(limit * 3); // Fetch more to allow for random picking
+
+    if (error) {
+        console.error('Error searching global questions:', error);
+        return [];
+    }
+
+    if (!data || data.length === 0) return [];
+
+    // 2. Client-side Randomization & Filtering
+    // (In a real app, use an RPC for "order by random()")
+    const shuffled = data.sort(() => 0.5 - Math.random());
+
+    // Map back to QuestionData format
+    // The DB stores: { content: QuestionData }
+    return shuffled.slice(0, limit).map(row => row.content);
 }
 
 export async function getCachedQuestions(examType: string, section: string, limit = 5) {

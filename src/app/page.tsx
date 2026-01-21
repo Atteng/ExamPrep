@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -13,9 +13,56 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getUserProfile, getUserResults, getUserStats } from "@/lib/db/actions";
 
+import { useSearchParams, useRouter } from "next/navigation";
+import { CheckCircle2, XCircle } from "lucide-react";
+
+// Separate component for Payment Feedback to handle useSearchParams with Suspense
+function PaymentFeedback() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const paymentStatus = searchParams.get('payment');
+
+  useEffect(() => {
+    if (paymentStatus === 'success') {
+      // Clean URL after 3 seconds
+      const timer = setTimeout(() => {
+        router.replace('/');
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [paymentStatus, router]);
+
+  if (paymentStatus === 'success') {
+    return (
+      <div className="rounded-lg border bg-green-50 border-green-200 p-4 shadow-sm flex items-center animate-in fade-in slide-in-from-top-2">
+        <CheckCircle2 className="h-6 w-6 text-green-600 mr-3" />
+        <div>
+          <h3 className="font-semibold text-green-800">Payment Successful!</h3>
+          <p className="text-sm text-green-700">Welcome to ExamPrep Pro. You now have unlimited access.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (paymentStatus === 'failed') {
+    return (
+      <div className="rounded-lg border bg-red-50 border-red-200 p-4 shadow-sm flex items-center animate-in fade-in slide-in-from-top-2">
+        <XCircle className="h-6 w-6 text-red-600 mr-3" />
+        <div>
+          <h3 className="font-semibold text-red-800">Payment Failed</h3>
+          <p className="text-sm text-red-700">Something went wrong. Please try again or contact support.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function Home() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Removed useSearchParams from here
 
   const [stats, setStats] = useState({ questionsAnswered: 0, avgAccuracy: 0, studyHours: 0, testsTaken: 0 });
 
@@ -30,6 +77,9 @@ export default function Home() {
           ]);
           setProfile(userProfile);
           if (userStats) setStats(userStats);
+        } else {
+          // Guest State
+          setProfile({ full_name: "Guest Student" });
         }
       } catch (error) {
         console.error("Dashboard load failed", error);
@@ -41,7 +91,7 @@ export default function Home() {
   }, []);
 
   // Fallback/Default values if no profile set
-  const displayName = profile?.full_name || "Student";
+  const displayName = profile?.full_name || "Guest Student";
   const studyGoal = profile?.study_goal_hours || 15;
   const meta = profile?.metadata || {};
 
@@ -115,6 +165,11 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
+      {/* Payment Success/Error Banner */}
+      <Suspense fallback={null}>
+        <PaymentFeedback />
+      </Suspense>
+
       {/* Welcome Section */}
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Welcome back, {displayName}</h1>

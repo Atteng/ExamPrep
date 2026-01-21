@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QuestionData } from "@/types/question";
 import { TestEngine } from "@/components/TestEngine/TestEngine";
-import { saveExamResult } from "@/lib/db/actions";
+import { saveExamResult, getUserProfile } from "@/lib/db/actions";
 import { TestResults } from "@/components/TestEngine/TestResults";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,19 @@ export default function PracticePage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [questions, setQuestions] = useState<QuestionData[]>(MOCK_QUESTIONS);
 
-    // Results State
+    // User Status
+    const [isPro, setIsPro] = useState(false);
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const profile = await getUserProfile(user.id);
+                setIsPro(!!profile?.is_pro);
+            }
+        };
+        checkStatus();
+    }, []);
     const [showResults, setShowResults] = useState(false);
     const [finalResults, setFinalResults] = useState<any>(null);
 
@@ -147,15 +159,19 @@ export default function PracticePage() {
                                 Full Test
                             </button>
                             <button
-                                onClick={() => setPracticeMode('section')}
+                                onClick={() => isPro && setPracticeMode('section')}
+                                disabled={!isPro}
                                 className={cn(
-                                    "py-1.5 text-sm font-medium rounded-md transition-all",
+                                    "py-1.5 text-sm font-medium rounded-md transition-all relative",
                                     practiceMode === 'section'
                                         ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
+                                        : "text-muted-foreground hover:text-foreground",
+                                    !isPro && "opacity-50 cursor-not-allowed grayscale"
                                 )}
+                                title={!isPro ? "Upgrade to Pro to unlock Section Drills" : ""}
                             >
                                 Section Drill
+                                {!isPro && <span className="ml-1 text-[10px] font-bold uppercase tracking-wider">Pro</span>}
                             </button>
                         </div>
 
@@ -165,25 +181,33 @@ export default function PracticePage() {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Difficulty</label>
                                     <div className="grid gap-2">
-                                        {[
-                                            { id: 'learning', label: 'Learning', desc: 'Easier mix to build confidence' },
-                                            { id: 'practice', label: 'Standard', desc: 'Real exam difficulty' },
-                                            { id: 'challenge', label: 'Challenge', desc: 'Hard C1/C2 questions' }
-                                        ].map((mode) => (
-                                            <button
-                                                key={mode.id}
-                                                onClick={() => setTestDifficulty(mode.id)}
-                                                className={cn(
-                                                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all hover:bg-muted/50",
-                                                    testDifficulty === mode.id
-                                                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                                        : "bg-card border-border"
-                                                )}
-                                            >
-                                                <span className="text-sm font-semibold">{mode.label}</span>
-                                                <span className="text-xs text-muted-foreground">{mode.desc}</span>
-                                            </button>
-                                        ))}
+                                        <div className="grid gap-2">
+                                            {[
+                                                { id: 'learning', label: 'Learning', desc: 'Easier mix to build confidence', allowed: true },
+                                                { id: 'practice', label: 'Standard', desc: 'Real exam difficulty', allowed: isPro },
+                                                { id: 'challenge', label: 'Challenge', desc: 'Hard C1/C2 questions', allowed: isPro }
+                                            ].map((mode) => (
+                                                <button
+                                                    key={mode.id}
+                                                    onClick={() => mode.allowed && setTestDifficulty(mode.id)}
+                                                    disabled={!mode.allowed}
+                                                    className={cn(
+                                                        "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
+                                                        testDifficulty === mode.id
+                                                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                                            : "bg-card border-border",
+                                                        !mode.allowed && "opacity-50 cursor-not-allowed bg-muted grayscale"
+                                                    )}
+                                                    title={!mode.allowed ? "Upgrade to Pro to unlock this mode" : ""}
+                                                >
+                                                    <div className="flex justify-between w-full">
+                                                        <span className="text-sm font-semibold">{mode.label}</span>
+                                                        {!mode.allowed && <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pro</span>}
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">{mode.desc}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -4,7 +4,7 @@ import { QuestionData, ExamType, SectionType } from "@/types/question";
 import { TestTemplate } from "./testTemplates";
 import { TOEFL_PROMPT, GRE_PROMPT, GERMAN_PROMPT } from "./promptTemplates";
 import toeflData from "@/data/toefl_source_data.json";
-import { getLibraryContent, saveLibraryContent } from "@/lib/db/actions";
+import { getLibraryContent, saveLibraryContent, findGlobalQuestions, saveGeneratedQuestions } from "@/lib/db/actions";
 
 // Helper to find examples in source data
 function getSourceData(taskType: string) {
@@ -115,9 +115,29 @@ export async function generateQuestions(
 
     // Smart Context
     const topic = getRandomTopic(excludeTopics);
-    const level = difficulty; // Use the passed difficulty instead of hardcoded getTargetLevel()
+    const level = difficulty; // Use the passed difficulty
 
-    // --- STRATEGY A: HYBRID (Complete The Words) ---
+    // --- SHARED LIBRARY CHECK ---
+    // 1. Try to find existing questions in the global pool that match criteria
+    console.log(`🔍 Searching Global Library for [${taskType}]...`);
+    // Assume search returns random set of matching questions
+    const existingQuestions = await findGlobalQuestions(examType, section, taskType, count, difficulty);
+
+    // If we found enough, return immediately (Cost = $0)
+    if (existingQuestions.length >= count) {
+        console.log(`✅ FOUND ${existingQuestions.length} reusable questions. Skipping AI.`);
+        return existingQuestions.slice(0, count);
+    }
+
+    // Otherwise, calculate how many MORE we need
+    const needed = count - existingQuestions.length;
+    console.log(`⚠️ PARTIAL HIT. Found ${existingQuestions.length}, Generating ${needed} new via AI...`);
+
+    let newQuestions: QuestionData[] = [];
+
+    // --- GENERATION STRATEGIES ---
+
+    // STRATEGY A: HYBRID (Complete The Words)
     if (taskType === 'complete_words' || taskType === 'Complete The Words') {
         const { text, source } = await fetchOrGenerateContent(
             'reading_passage_short',
@@ -126,7 +146,7 @@ export async function generateQuestions(
             `Write a single academic paragraph about ${topic}. Requirements: CEFR Level ${level}, Length 80 words. Tone: Educational. Output: Just raw text.`
         );
 
-        // Sanitize text: If it's JSON (e.g. {"paragraph": "..."}), extract the content
+        // Sanitize text
         let cleanText = text;
         try {
             if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
@@ -143,7 +163,7 @@ export async function generateQuestions(
 
         const processed = applyClozeMasking(cleanText);
 
-        return [{
+        newQuestions.push({
             id: crypto.randomUUID(),
             examType: examType as ExamType,
             section: section as SectionType,
@@ -151,13 +171,12 @@ export async function generateQuestions(
             prompt: "Complete the missing letters in the following passage:",
             text: processed.maskedText,
             answerKey: processed.answerKey,
-            metadata: { source, difficulty: 'hard', originalTopic: topic }
-        }];
+            metadata: { source, difficulty: 'hard' as const, originalTopic: topic }
+        });
     }
 
-    // --- STRATEGY B: HYBRID (Reading/Speaking with Context) ---
-    // Leverage seeded content if available for specific Reading/Speaking tasks
-    if (
+    // STRATEGY B: HYBRID (Reading/Speaking with Context)
+    else if (
         (section === 'reading' && (taskType.includes('Academic') || taskType.includes('Daily'))) ||
         (section === 'speaking' && (taskType.includes('Repeat') || taskType.includes('Interview')))
     ) {
@@ -169,10 +188,10 @@ export async function generateQuestions(
 
         // 1. Fetch Text from Library (or generate if missing)
         let promptText = "";
-        if (contentType === 'speaking_sentence') promptText = `Write ${count} simple academic sentences for a 'Listen and Repeat' test. Topics: ${topic}. Level: ${level}. Output: JSON array of strings.`;
-        else if (contentType === 'speaking_interview_question') promptText = `Write ${count} open-ended interview questions about ${topic}. Level: ${level}. Output: JSON array of strings.`;
+        if (contentType === 'speaking_sentence') promptText = `Write ${needed} simple academic sentences for a 'Listen and Repeat' test. Topics: ${topic}. Level: ${level}. Output: JSON array of strings.`;
+        else if (contentType === 'speaking_interview_question') promptText = `Write ${needed} open-ended interview questions about ${topic}. Level: ${level}. Output: JSON array of strings.`;
         else {
-            const isLongData = count >= 5;
+            const isLongData = needed >= 5;
             const length = isLongData ? "400-500" : "150-200";
             promptText = `Write a ${contentType.includes('daily') ? 'real-world text (e.g. email, ad)' : 'academic passage'} about ${topic}. Requirements: CEFR ${level}, ${length} words.`;
         }
@@ -185,94 +204,90 @@ export async function generateQuestions(
         );
 
         // 2. Process Content into Question Objects
-        // Special handling for Speaking lists (sentence arrays) vs Reading passages
         if (section === 'speaking') {
             let items: string[] = [];
             try {
-                // Attempt JSON parse first if we asked for array
                 if (text.trim().startsWith('[')) {
                     items = JSON.parse(text);
                 } else {
-                    // Fallback to splitting by newlines
                     items = text.split('\n').filter(l => l.trim().length > 10);
                 }
             } catch (e) { items = [text]; }
 
-            return items.slice(0, count).map((item, idx) => ({
+            const generatedItems = items.slice(0, needed).map((item, idx) => ({
                 id: crypto.randomUUID(),
                 examType: examType as ExamType,
                 section: section as SectionType,
                 taskType: taskType,
                 prompt: taskType.includes('Repeat') ? "Repeat the sentence exactly." : "Answer the question.",
-                text: item, // The sentence/question to speak/answer
+                text: item,
                 answerKey: "N/A - Subjective Grading",
-                metadata: { source, difficulty: 'medium', originalTopic: topic }
+                metadata: { source, difficulty: 'medium' as const, originalTopic: topic }
             }));
-        }
+            newQuestions.push(...generatedItems);
+        } else {
+            // Reading logic
+            const hybridPrompt = `
+            CONTEXT TEXT:
+            """${text}"""
+    
+            TASK:
+            Generate ${needed} multiple-choice question(s) based on the text above.
+            examType: ${examType}
+            taskType: ${taskType}
+            level: ${level}
+    
+            JSON OUTPUT FORMAT:
+            [{
+              "id": "uuid",
+              "examType": "${examType}",
+              "section": "${section}",
+              "taskType": "${taskType}",
+              "prompt": "Question text...",
+              "text": "${text.substring(0, 20)}...", 
+              "options": ["A", "B", "C", "D"],
+              "answerKey": "The correct option text"
+            }]
+            
+            IMPORTANT: 
+            - The questions must be answerable ONLY from the text.
+            - Include the full text in the 'text' field for every question object.
+            `;
 
-        // ... Standard Reading Logic (Existing code) ...
-        const hybridPrompt = `
-        CONTEXT TEXT:
-        """${text}"""
+            try {
+                const result = await generateWithRetry(async () => await model.generateContent(hybridPrompt));
+                const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(raw) as QuestionData[];
 
-        TASK:
-        Generate ${count} multiple-choice question(s) based on the text above.
-        examType: ${examType}
-        taskType: ${taskType}
-        level: ${level}
-
-        JSON OUTPUT FORMAT:
-        [{
-          "id": "uuid",
-          "examType": "${examType}",
-          "section": "${section}",
-          "taskType": "${taskType}",
-          "prompt": "Question text...",
-          "text": "${text.substring(0, 20)}...", 
-          "options": ["A", "B", "C", "D"],
-          "answerKey": "The correct option text"
-        }]
-        
-        IMPORTANT: 
-        - The questions must be answerable ONLY from the text.
-        - Include the full text in the 'text' field for every question object to ensure standalone rendering.
-        `;
-
-        try {
-            const result = await generateWithRetry(async () => await model.generateContent(hybridPrompt));
-            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(raw) as QuestionData[];
-
-            return parsed.map(q => ({
-                ...q,
-                id: crypto.randomUUID(),
-                text: text, // STRICTLY ENFORCE: Use the fetched text, not whatever the AI hallucinated/summarized
-                metadata: { ...q.metadata, source, originalTopic: topic }
-            }));
-        } catch (e) {
-            console.error("Hybrid Reading Gen Failed:", e);
-            // Fallthrough to Standard Strategy if this fails
+                const validated = parsed.map(q => ({
+                    ...q,
+                    id: crypto.randomUUID(),
+                    text: text, // Use fetched text
+                    metadata: { ...q.metadata, source, originalTopic: topic }
+                }));
+                newQuestions.push(...validated);
+            } catch (e) {
+                console.error("Hybrid Reading Gen Failed:", e);
+                // Fallthrough implies returning empty newQuestions -> error handling or retry might be needed
+            }
         }
     }
 
-    // --- STRATEGY C: LISTENING (Multi-Question Sets) ---
-    if (section === 'listening') {
-        const difficulty = 'medium'; // Could differ by user level
-        const numQuestions = taskType.includes('Academic') ? 4 : 3;
+    // STRATEGY C: LISTENING (Multi-Question Sets)
+    else if (section === 'listening') {
+        const difficulty = 'medium';
+        const questionsPerPassage = taskType.includes('Academic') ? 4 : 3;
 
         const listeningPrompt = `
         TASK:
-        Generate ${count} Listening Passage(s) for task type: "${taskType}".
+        Generate ${needed} Listening Passage(s) for task type: "${taskType}".
         Topic: ${topic}
         Level: ${level}
 
         REQUIREMENTS:
-        1. Context: ${taskType.includes('Conversation') ? 'A dialogue between two students or student/professor (Female/Male voices).' : 'A monologue (Announcement or Lecture).'}
-        2. Content: Authentic academic/campus scenario.
-        3. Questions: Generate ${numQuestions} multiple-choice questions per passage.
-        4. Transcripts:
-           - Conversation: Use "Woman:" and "Man:" labels.
-           - Announcement/Talk: Just paragraph text.
+        1. Context: ${taskType.includes('Conversation') ? 'A dialogue.' : 'A monologue.'}
+        2. Questions: Generate ${questionsPerPassage} questions per passage.
+        3. Transcripts: Included.
 
         JSON OUTPUT FORMAT (Array of Objects):
         [{
@@ -280,16 +295,9 @@ export async function generateQuestions(
           "examType": "${examType}",
           "section": "listening",
           "taskType": "${taskType}",
-          "prompt": "Listen to the audio and answer the questions.", 
-          "text": "Full transcript here...",
-          "questions": [
-             { 
-               "id": "q1", 
-               "prompt": "What are they discussing?", 
-               "options": ["A", "B", "C", "D"], 
-               "answerKey": "The correct option text" 
-             }
-          ]
+          "prompt": "Listen...", 
+          "text": "Full transcript...",
+          "questions": [...]
         }]
         `;
 
@@ -298,90 +306,108 @@ export async function generateQuestions(
             const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(raw) as QuestionData[];
 
-            return parsed.map(q => ({
+            const validated = parsed.map(q => ({
                 ...q,
                 id: crypto.randomUUID(),
-                metadata: { source: 'ai-generated', difficulty, originalTopic: topic }
+                metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
             }));
+            newQuestions.push(...validated);
 
         } catch (e) {
             console.error("Listening Generation Failed:", e);
-            throw new Error("Failed to generate listening set");
         }
     }
 
-    // --- STRATEGY D: STANDARD AI GENERATION (Legacy) ---
-    let promptTemplate = "";
+    // STRATEGY D: STANDARD AI GENERATION (Legacy)
+    else {
+        let promptTemplate = "";
+        switch (examType.toLowerCase()) {
+            case 'gre': promptTemplate = GRE_PROMPT; break;
+            case 'german': promptTemplate = GERMAN_PROMPT; break;
+            case 'toefl': default: promptTemplate = TOEFL_PROMPT; break;
+        }
 
-    switch (examType.toLowerCase()) {
-        case 'gre': promptTemplate = GRE_PROMPT; break;
-        case 'german': promptTemplate = GERMAN_PROMPT; break;
-        case 'toefl': default: promptTemplate = TOEFL_PROMPT; break;
+        const hydratedPrompt = promptTemplate
+            .replace('${count}', needed.toString())
+            .replace('${taskType}', taskType)
+            .replace('${section}', section)
+            .replace('${topic}', topic)
+            .replace('${level}', level)
+            .replace('${reference}', JSON.stringify(sourceTask || {}, null, 2));
+
+        const finalPrompt = `
+        ${hydratedPrompt}
+        
+        GLOBAL REQUIREMENTS:
+        1. Generate new content.
+        2. Strict JSON.
+        3. Output Array of Objects.
+        
+        JSON SCHEMA:
+        [{
+          "id": "uuid",
+          "examType": "${examType}",
+          "section": "${section}",
+          "taskType": "${taskType}",
+          "prompt": "Prompt...",
+          "text": "Text...",
+          "options": ["A", "B", "C", "D"],
+          "answerKey": "Correct Option"
+        }]
+        `;
+
+        try {
+            const result = await generateWithRetry(async () => {
+                return await model.generateContent(finalPrompt);
+            });
+
+            const text = result.response.text()
+                .replace(/```json/g, '')
+                .replace(/```/g, '')
+                .trim();
+
+            const parsed = JSON.parse(text) as QuestionData[];
+
+            const validQuestions = parsed.filter(q => {
+                const validation = validateQuestion(q);
+                return validation.valid;
+            });
+
+            const mapped = validQuestions.map(q => ({
+                ...q,
+                id: q.id || crypto.randomUUID(),
+                examType: examType as ExamType,
+                section: section as SectionType,
+                taskType
+            }));
+            newQuestions.push(...mapped);
+
+        } catch (error) {
+            console.error("AI Generation Error:", error);
+            // Don't throw if we have some existing questions, just return what we have?
+            // If newQuestions is empty and existing is empty, then throw.
+        }
     }
 
-    const hydratedPrompt = promptTemplate
-        .replace('${count}', count.toString())
-        .replace('${taskType}', taskType)
-        .replace('${section}', section)
-        .replace('${topic}', topic)
-        .replace('${level}', level)
-        .replace('${reference}', JSON.stringify(sourceTask || {}, null, 2));
-
-    const finalPrompt = `
-    ${hydratedPrompt}
-    
-    GLOBAL REQUIREMENTS:
-    1. Generate entirely new content.
-    2. Maintain strict JSON format.
-    3. Output strictly an Array of Objects.
-    
-    JSON SCHEMA:
-    [{
-      "id": "uuid",
-      "examType": "${examType}",
-      "section": "${section}",
-      "taskType": "${taskType}",
-      "prompt": "The question prompt",
-      "text": "Reading passage if needed",
-      "options": ["A", "B", "C", "D"],
-      "answerKey": "The correct option text"
-    }]
-    `;
-
-    try {
-        const result = await generateWithRetry(async () => {
-            return await model.generateContent(finalPrompt);
-        });
-
-        const text = result.response.text()
-            .replace(/```json/g, '')
-            .replace(/```/g, '')
-            .trim();
-
-        const parsed = JSON.parse(text) as QuestionData[];
-
-        const validQuestions = parsed.filter(q => {
-            const validation = validateQuestion(q);
-            if (!validation.valid) {
-                console.warn("⚠️ Invalid AI Question Dropped:", validation.errors);
-            }
-            return validation.valid;
-        });
-
-        if (validQuestions.length === 0) throw new Error("All generated questions failed validation");
-
-        return validQuestions.map(q => ({
-            ...q,
-            id: q.id || crypto.randomUUID(),
-            examType: examType as ExamType,
-            section: section as SectionType,
-            taskType
+    // --- SAVE TO GLOBAL POOL ---
+    if (newQuestions.length > 0) {
+        console.log(`💾 Saving ${newQuestions.length} new questions to Global Library...`);
+        // Map to DB format: { exam_type, section, content }
+        const dbPayload = newQuestions.map(q => ({
+            exam_type: q.examType,
+            section: q.section,
+            content: q
         }));
-
-    } catch (error) {
-        console.error("AI Generation Error:", error);
-        throw new Error("Failed to generate questions after retries.");
+        await saveGeneratedQuestions(dbPayload);
     }
+
+    // Check if we have enough total
+    const total = [...existingQuestions, ...newQuestions];
+    if (total.length === 0) {
+        throw new Error("Failed to generate or retrieve any questions.");
+    }
+
+    return total;
 }
 
 export async function generateFullTest(template: TestTemplate, examType: string = 'toefl', difficulty: string = 'B2'): Promise<QuestionData[]> {
