@@ -35,9 +35,9 @@ export default function ListenAcademicTalk({
 
     const questions = question.questions?.map((q: any, idx) => ({
         id: idx,
-        text: q.prompt || q.text || "Choose the best answer",
+        text: q.prompt || q.question || q.text || "Choose the best answer",
         options: q.options || [],
-        correctAnswer: q.answerKey
+        correctAnswer: q.answerKey || q.answer
     })) || [{
         id: 0,
         text: question.prompt || "What is the main topic of the talk?",

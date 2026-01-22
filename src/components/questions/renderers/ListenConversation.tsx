@@ -44,7 +44,7 @@ export default function ListenConversation({
         id: idx,
         text: q.prompt || q.text || q.question || "Choose the best answer.",
         options: q.options || [],
-        correctAnswer: q.answerKey
+        correctAnswer: q.answerKey || q.answer
     })) || [{
         id: 0,
         text: question.prompt || question.text || "What does the conversation mainly discuss?",

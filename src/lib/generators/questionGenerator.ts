@@ -1,3 +1,5 @@
+import { shuffleArray } from "@/lib/utils/shuffle";
+
 import { model, generateWithRetry } from "../gemini";
 import { validateQuestion } from "../validators/questionValidator";
 import { QuestionData, ExamType, SectionType } from "@/types/question";
@@ -51,10 +53,17 @@ function applyClozeMasking(text: string) {
 // Helper: Random Topic Generator
 function getRandomTopic(exclude: string[] = []) {
     const topics = [
+        // Original Topics
         "Campus Life", "Modern History", "Environmental Science",
         "Art History", "Psychology", "Technology", "Economics", "Astronomy",
         "Architecture", "Biology", "Literature", "Marketing", "Geology",
-        "Anthropology", "Computer Science", "Linguistics"
+        "Anthropology", "Computer Science", "Linguistics",
+        // Expanded Topics for Variety
+        "Quantum Physics", "Marine Biology", "Ancient Civilizations", "Philosophy",
+        "Neuroscience", "Climate Change", "Artificial Intelligence", "Music Theory",
+        "Political Science", "Sociology", "World Religions", "Chemistry",
+        "Robotics", "Genetics", "Urban Planning", "Journalism",
+        "Public Health", "Renewable Energy", "Space Exploration", "Cryptography"
     ];
 
     // Filter available topics
@@ -123,17 +132,75 @@ export async function generateQuestions(
     // Assume search returns random set of matching questions
     const existingQuestions = await findGlobalQuestions(examType, section, taskType, count, difficulty);
 
-    // If we found enough, return immediately (Cost = $0)
-    if (existingQuestions.length >= count) {
-        console.log(`✅ FOUND ${existingQuestions.length} reusable questions. Skipping AI.`);
-        return existingQuestions.slice(0, count);
+    // Filter cached questions by excluded topics
+    const filteredQuestions = existingQuestions.filter(q => {
+        const questionTopic = q.metadata?.originalTopic;
+        return !questionTopic || !excludeTopics.includes(questionTopic);
+    });
+
+    console.log(`✅ FOUND ${existingQuestions.length} cached questions, ${filteredQuestions.length} after topic filtering.`);
+
+    // If we have enough after filtering, return them
+    if (filteredQuestions.length >= count) {
+        // IMPORTANT: Shuffle options for cached questions too!
+        const shuffledExisting = filteredQuestions.map(q => {
+            if (q.options && q.options.length > 0) {
+                return {
+                    ...q,
+                    options: shuffleArray(q.options)
+                };
+            }
+            // Handle nested questions (Listening passages)
+            if (q.questions && q.questions.length > 0) {
+                return {
+                    ...q,
+                    questions: q.questions.map((subQ: any) => {
+                        if (subQ.options && subQ.options.length > 0) {
+                            return { ...subQ, options: shuffleArray(subQ.options) };
+                        }
+                        return subQ;
+                    })
+                };
+            }
+            return q;
+        });
+
+        return shuffledExisting.slice(0, count);
     }
 
-    // Otherwise, calculate how many MORE we need
-    const needed = count - existingQuestions.length;
-    console.log(`⚠️ PARTIAL HIT. Found ${existingQuestions.length}, Generating ${needed} new via AI...`);
-
+    // Declare needed at the top of scope
+    let needed = 0;
     let newQuestions: QuestionData[] = [];
+
+    // If we have SOME filtered questions but not enough, use them and generate the rest
+    if (filteredQuestions.length > 0) {
+        console.log(`⚠️ Only ${filteredQuestions.length} valid cached questions. Generating ${count - filteredQuestions.length} more.`);
+        // Update 'needed' to reflect what we still need after using filtered cache
+        needed = count - filteredQuestions.length;
+        // Add the filtered questions to our result set
+        const shuffledPartial = filteredQuestions.map(q => {
+            if (q.options && q.options.length > 0) {
+                return { ...q, options: shuffleArray(q.options) };
+            }
+            if (q.questions && q.questions.length > 0) {
+                return {
+                    ...q,
+                    questions: q.questions.map((subQ: any) => {
+                        if (subQ.options && subQ.options.length > 0) {
+                            return { ...subQ, options: shuffleArray(subQ.options) };
+                        }
+                        return subQ;
+                    })
+                };
+            }
+            return q;
+        });
+        newQuestions.push(...shuffledPartial);
+    } else {
+        // Otherwise, calculate how many MORE we need (no valid cached questions at all)
+        needed = count;
+        console.log(`⚠️ NO VALID CACHED QUESTIONS after topic filtering. Generating ${needed} new via AI...`);
+    }
 
     // --- GENERATION STRATEGIES ---
 
@@ -366,7 +433,7 @@ export async function generateQuestions(
                 // Shuffle options to randomize correct answer position
                 if (q.options && q.options.length > 0) {
                     const correctAnswer = q.answerKey;
-                    const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+                    const shuffled = shuffleArray(q.options);
 
                     return {
                         ...q,
@@ -412,10 +479,21 @@ export async function generateQuestions(
           "examType": "${examType}",
           "section": "listening",
           "taskType": "${taskType}",
-          "prompt": "Listen...", 
+          "prompt": "Listen to the ${taskType.includes('Conversation') ? 'conversation' : 'announcement'}...", 
           "text": "Full transcript...",
-          "questions": [...]
+          "questions": [
+            {
+              "prompt": "What is the main topic?",
+              "options": ["A", "B", "C", "D"],
+              "answerKey": "Correct option text"
+            }
+          ]
         }]
+        
+        CRITICAL: Each question in the "questions" array MUST have:
+        - "prompt": The actual question text (e.g., "What is the main purpose?")
+        - "options": Array of 4 answer choices
+        - "answerKey": The correct answer text
         `;
 
         try {
@@ -430,7 +508,7 @@ export async function generateQuestions(
                         if (subQ.options && subQ.options.length > 0) {
                             return {
                                 ...subQ,
-                                options: [...subQ.options].sort(() => Math.random() - 0.5)
+                                options: shuffleArray(subQ.options)
                             };
                         }
                         return subQ;

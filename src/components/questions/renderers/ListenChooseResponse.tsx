@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
@@ -29,6 +29,7 @@ export default function ListenChooseResponse({
 }: ListenChooseResponseProps) {
     const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'question' : 'initial');
     const [selectedAnswer, setSelectedAnswer] = useState<string>(userAnswer);
+    const isPlayingRef = useRef(false); // Guard against concurrent playback
 
     const cleanAudioText = (text: string) => {
         if (!text) return "";
@@ -45,18 +46,23 @@ export default function ListenChooseResponse({
 
     useEffect(() => {
         // Only auto-play in test mode, not review mode
-        if (!reviewMode) {
+        if (!reviewMode && !isPlayingRef.current) {
             handlePlayAudio();
         }
         return () => {
             stopSpeaking();
+            isPlayingRef.current = false;
         };
     }, [question.id, reviewMode]);
 
     const handlePlayAudio = () => {
+        if (isPlayingRef.current) return; // Prevent concurrent calls
+
+        isPlayingRef.current = true;
         setFlowState('playing');
         speakText(audioText, () => {
             setFlowState('question');
+            isPlayingRef.current = false;
         });
     };
 

@@ -75,6 +75,7 @@ async function fetchTTS(text: string, gender: VoiceGender = 'neutral'): Promise<
 
 // Track current audio to enable stopping
 let currentAudio: HTMLAudioElement | null = null;
+let isSpeaking = false; // Lock to prevent concurrent calls
 
 // Helper: Play audio URL and wait for completion
 function playAudio(url: string): Promise<void> {
@@ -120,8 +121,14 @@ function speakBrowser(text: string, gender: VoiceGender, onEnd?: () => void) {
     if (voice) utterance.voice = voice;
     utterance.rate = 0.9;
 
-    utterance.onend = () => { if (onEnd) onEnd(); };
-    utterance.onerror = () => { if (onEnd) onEnd(); };
+    utterance.onend = () => {
+        isSpeaking = false; // Reset lock when browser TTS finishes
+        if (onEnd) onEnd();
+    };
+    utterance.onerror = () => {
+        isSpeaking = false; // Reset lock on error too
+        if (onEnd) onEnd();
+    };
 
     window.speechSynthesis.speak(utterance);
 }
@@ -129,19 +136,31 @@ function speakBrowser(text: string, gender: VoiceGender, onEnd?: () => void) {
 // --- EXPORTS ---
 
 export const speakText = async (text: string, onEnd?: () => void) => {
-    // Try API first
-    const url = await fetchTTS(text, 'neutral');
+    // Prevent concurrent calls
+    if (isSpeaking) {
+        console.warn("TTS: Already speaking, ignoring concurrent call");
+        return;
+    }
 
-    if (url) {
-        try {
-            await playAudio(url);
-            if (onEnd) onEnd();
-        } catch (e) {
-            console.warn("Audio Playback failed, fallback to browser");
+    isSpeaking = true;
+
+    try {
+        // Try API first
+        const url = await fetchTTS(text, 'neutral');
+
+        if (url) {
+            try {
+                await playAudio(url);
+                if (onEnd) onEnd();
+            } catch (e) {
+                console.warn("Audio Playback failed, fallback to browser");
+                speakBrowser(text, 'neutral', onEnd);
+            }
+        } else {
             speakBrowser(text, 'neutral', onEnd);
         }
-    } else {
-        speakBrowser(text, 'neutral', onEnd);
+    } finally {
+        isSpeaking = false;
     }
 };
 
@@ -195,4 +214,7 @@ export const stopSpeaking = () => {
         currentAudio.pause();
         currentAudio = null;
     }
+
+    // Reset lock
+    isSpeaking = false;
 };

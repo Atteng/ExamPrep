@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
@@ -30,20 +30,23 @@ export default function ListenAnnouncement({
     const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'questions' : 'initial');
     const [answers, setAnswers] = useState<{ [key: number]: string }>({});
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const isPlayingRef = useRef(false); // Guard against concurrent playback
 
     const announcementText = question.text || "";
 
     const questions = question.questions?.map((q: any, idx) => ({
         id: idx,
-        text: q.prompt || q.text || "Choose the best answer",
+        text: q.prompt || q.question || q.text || "Choose the best answer",
         options: q.options || [],
-        correctAnswer: q.answerKey
+        correctAnswer: q.answerKey || q.answer
     })) || [{
         id: 0,
         text: question.prompt || "What is the announcement about?",
         options: question.options || [],
         correctAnswer: question.answerKey
     }];
+
+
 
     // Parse answers in review mode
     useEffect(() => {
@@ -58,18 +61,23 @@ export default function ListenAnnouncement({
     }, [reviewMode, userAnswer]);
 
     useEffect(() => {
-        if (!reviewMode) {
+        if (!reviewMode && !isPlayingRef.current) {
             handlePlayAudio();
         }
         return () => {
             stopSpeaking();
+            isPlayingRef.current = false;
         };
     }, [question.id, reviewMode]);
 
     const handlePlayAudio = () => {
+        if (isPlayingRef.current) return; // Prevent concurrent calls
+
+        isPlayingRef.current = true;
         setFlowState('playing');
         speakText(announcementText, () => {
             setFlowState('questions');
+            isPlayingRef.current = false;
         });
     };
 
