@@ -4,6 +4,7 @@ import { useState } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { MultipleChoice } from "../MultipleChoice";
+import { extractQuestionContent, cleanText } from "@/lib/utils";
 
 interface ReadDailyLifeProps {
     question: QuestionData;
@@ -18,11 +19,6 @@ export default function ReadDailyLife({ question, onAnswer }: ReadDailyLifeProps
         onAnswer(option);
     };
 
-    // Process text to convert escaped newlines (\n) to actual newlines
-    const processText = (text: string | undefined) => {
-        if (!text) return '';
-        return text.replace(/\\n/g, '\n');
-    };
 
     // Smart content renderer: detects JSON structure and formats accordingly
     const renderContent = () => {
@@ -55,17 +51,17 @@ export default function ReadDailyLife({ question, onAnswer }: ReadDailyLifeProps
 
                         {/* Content */}
                         <div className="text-sm leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
-                            {processText(parsed.content || parsed.body)}
+                            {cleanText(parsed.content || parsed.body)}
                         </div>
                     </div>
                 );
             }
         } catch {
-            // Not JSON, render as plain text
+            // Not structured JSON, proceed to fallback
         }
 
-        // Fallback: Plain text with newline support
-        return processText(question.text);
+        // Fallback: Use standardized extractor for generic JSON or plain text
+        return cleanText(extractQuestionContent(question.text));
     };
 
     return (

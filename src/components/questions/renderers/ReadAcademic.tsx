@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
+import { extractQuestionContent } from "@/lib/utils";
 
 interface ReadAcademicProps {
     question: QuestionData;
@@ -18,40 +19,21 @@ export default function ReadAcademic({ question, onAnswer }: ReadAcademicProps) 
     };
 
     // Helper to process newlines for display
-    const processText = (text: string) => {
-        return text.split(/\\n|\n/).map((line, i) => (
+    const renderParagraphs = (text: string) => {
+        return text.split(/\n/).map((line, i) => (
             line.trim() ? <p key={i} className="mb-4 text-justify">{line.trim()}</p> : <br key={i} />
         ));
     };
 
-    // Helper to render content (similar to ReadDailyLife but optimized for long text)
+    // Helper to render content using standardized extractor
     const renderContent = () => {
-        if (!question.text) return null;
+        const contentToRender = extractQuestionContent(question.text);
 
-        let contentToRender = question.text;
-
-        // Try to parse JSON if it looks like it
-        try {
-            if (contentToRender.trim().startsWith('{') || contentToRender.trim().startsWith('[')) {
-                const parsed = JSON.parse(contentToRender);
-                if (Array.isArray(parsed)) {
-                    // Logic for array? Usually academic is one long text.
-                    // If array, join them or take the first big chunk.
-                    if (parsed[0]?.paragraph) contentToRender = parsed[0].paragraph;
-                    else contentToRender = JSON.stringify(parsed, null, 2);
-                } else {
-                    if (parsed.paragraph) contentToRender = parsed.paragraph;
-                    else if (parsed.text) contentToRender = parsed.text;
-                    else if (parsed.content) contentToRender = parsed.content;
-                }
-            }
-        } catch (e) {
-            // Not JSON, use raw
-        }
+        if (!contentToRender) return null;
 
         return (
             <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none text-foreground/90 leading-relaxed font-serif">
-                {processText(contentToRender)}
+                {renderParagraphs(contentToRender)}
             </div>
         );
     };
