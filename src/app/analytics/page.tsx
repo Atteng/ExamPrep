@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getUserResults } from "@/lib/db/actions";
 import { ExamType } from "@/types/question";
 import { TestResults } from "@/components/TestEngine/TestResults";
+import { roundToNearestHalf } from "@/lib/scoring/toefl2026";
 
 interface ScoreData {
     id: string;
@@ -27,6 +28,14 @@ interface ScoreData {
     metadata?: any;
 }
 
+function isWithinLastTwoYears(testDateIso: string) {
+    const d = new Date(testDateIso);
+    const now = new Date();
+    const twoYearsAgo = new Date(now);
+    twoYearsAgo.setFullYear(now.getFullYear() - 2);
+    return d >= twoYearsAgo && d <= now;
+}
+
 // ... (existing imports)
 
 export default function AnalyticsPage() {
@@ -34,7 +43,9 @@ export default function AnalyticsPage() {
     const [selectedResultId, setSelectedResultId] = useState<string>('');
     const [testResults, setTestResults] = useState<ScoreData[]>([]);
     const [showReview, setShowReview] = useState(false);
-    const [displayMode, setDisplayMode] = useState<'standard' | 'band'>('standard');
+    // TOEFL iBT (updated format): primary score scale is 1–6 (0.5 increments).
+    // Keep a legacy 0–120 view for older stored results / temporary concordance.
+    const [displayMode, setDisplayMode] = useState<'six_scale' | 'legacy_120'>('six_scale');
 
     useEffect(() => {
         async function loadData() {
@@ -75,18 +86,20 @@ export default function AnalyticsPage() {
                             examType: 'toefl',
                             section: 'full',
                             testDate: '2026-01-18',
-                            totalScore: 98,
-                            maxScore: 120,
-                            scores: { reading: 26, listening: 24, speaking: 23, writing: 25 }
+                            totalScore: 4,
+                            maxScore: 6,
+                            scores: { reading: 4, listening: 4, speaking: 4, writing: 4 },
+                            metadata: { legacy_score_0_120_label: "98" }
                         },
                         {
                             id: '2',
                             examType: 'toefl',
                             section: 'full',
                             testDate: '2026-01-15',
-                            totalScore: 92,
-                            maxScore: 120,
-                            scores: { reading: 24, listening: 22, speaking: 24, writing: 22 }
+                            totalScore: 4,
+                            maxScore: 6,
+                            scores: { reading: 4, listening: 3, speaking: 4, writing: 3 },
+                            metadata: { legacy_score_0_120_label: "92" }
                         }
                     ];
                     setTestResults(mockData);
@@ -101,6 +114,7 @@ export default function AnalyticsPage() {
 
     // Filter results for the selected exam
     const examResults = testResults.filter(r => r.examType === selectedExam);
+    const examResultsLast2y = examResults.filter(r => isWithinLastTwoYears(r.testDate));
 
     // Get currently selected result or fallback to latest
     const currentResult = examResults.find(r => r.id === selectedResultId) || examResults[0];
@@ -125,22 +139,22 @@ export default function AnalyticsPage() {
 
                     <div className="bg-card border rounded-lg p-1 flex items-center space-x-1">
                         <button
-                            onClick={() => setDisplayMode('standard')}
+                            onClick={() => setDisplayMode('six_scale')}
                             className={cn(
                                 "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                                displayMode === 'standard' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+                                displayMode === 'six_scale' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
                             )}
                         >
-                            Standard
+                            TOEFL (1–6)
                         </button>
                         <button
-                            onClick={() => setDisplayMode('band')}
+                            onClick={() => setDisplayMode('legacy_120')}
                             className={cn(
                                 "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                                displayMode === 'band' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+                                displayMode === 'legacy_120' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
                             )}
                         >
-                            Band (1-6)
+                            Legacy (0–120)
                         </button>
                     </div>
                 </div>
@@ -173,7 +187,7 @@ export default function AnalyticsPage() {
                                     >
                                         {examResults.map((result, idx) => (
                                             <option key={result.id} value={result.id}>
-                                                {idx === 0 ? 'Latest' : new Date(result.testDate).toLocaleDateString()} - Score: {result.totalScore}
+                                                {idx === 0 ? 'Latest' : new Date(result.testDate).toLocaleDateString()} - Score: {displayMode === 'six_scale' ? roundToNearestHalf(result.totalScore) : (result.metadata?.legacy_score_0_120_label ?? result.metadata?.legacy_score_0_120_min ?? '')}
                                             </option>
                                         ))}
                                     </select>
@@ -214,6 +228,14 @@ export default function AnalyticsPage() {
                                     <span>Exam Type: <span className="font-semibold text-foreground">{selectedExam.toUpperCase()}</span></span>
                                     <span>Test Date: <span className="font-semibold text-foreground">{new Date(currentResult.testDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span></span>
                                     <span>Result ID: <span className="font-semibold text-foreground">{currentResult.id}</span></span>
+                                    {selectedExam === 'toefl' && currentResult.metadata?.objective_scaled_030 && (
+                                        <span>
+                                            Obj (0–30):{" "}
+                                            <span className="font-semibold text-foreground">
+                                                R {currentResult.metadata.objective_scaled_030.reading ?? "—"} / L {currentResult.metadata.objective_scaled_030.listening ?? "—"}
+                                            </span>
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Score Card */}
@@ -242,13 +264,15 @@ export default function AnalyticsPage() {
                                             </svg>
                                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                                 <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                                                    {displayMode === 'standard' ? 'Total Score' : 'Band Score'}
+                                                    {displayMode === 'legacy_120' ? 'Total Score (0–120)' : 'Total Score (1–6)'}
                                                 </span>
                                                 <span className="text-4xl font-bold mt-1">
-                                                    {displayMode === 'standard' ? currentResult.totalScore : toBandScore(currentResult.totalScore, currentResult.maxScore)}
+                                                    {displayMode === 'legacy_120'
+                                                        ? (currentResult.metadata?.legacy_score_0_120_label ?? currentResult.metadata?.legacy_score_0_120_min ?? "")
+                                                        : currentResult.totalScore}
                                                 </span>
                                                 <span className="text-sm text-muted-foreground">
-                                                    out of {displayMode === 'standard' ? currentResult.maxScore : "6.0"}
+                                                    out of {displayMode === 'legacy_120' ? 120 : 6}
                                                 </span>
                                             </div>
                                         </div>
@@ -257,10 +281,10 @@ export default function AnalyticsPage() {
                                         <div className="flex-1 grid grid-cols-2 gap-4 w-full">
                                             {selectedExam === 'toefl' && (
                                                 <>
-                                                    {renderSectionBox('Reading', currentResult.scores.reading || 0, 30, displayMode)}
-                                                    {renderSectionBox('Listening', currentResult.scores.listening || 0, 30, displayMode)}
-                                                    {renderSectionBox('Speaking', currentResult.scores.speaking || 0, 30, displayMode)}
-                                                    {renderSectionBox('Writing', currentResult.scores.writing || 0, 30, displayMode)}
+                                                    {renderSectionBox('Reading', currentResult.scores.reading || 0, displayMode === 'legacy_120' ? 30 : 6, displayMode)}
+                                                    {renderSectionBox('Listening', currentResult.scores.listening || 0, displayMode === 'legacy_120' ? 30 : 6, displayMode)}
+                                                    {renderSectionBox('Speaking', currentResult.scores.speaking || 0, displayMode === 'legacy_120' ? 30 : 6, displayMode)}
+                                                    {renderSectionBox('Writing', currentResult.scores.writing || 0, displayMode === 'legacy_120' ? 30 : 6, displayMode)}
                                                 </>
                                             )}
                                             {selectedExam === 'gre' && (
@@ -292,49 +316,51 @@ export default function AnalyticsPage() {
                                         maxScore={currentResult.maxScore}
                                         sectionScores={currentResult.scores as any}
                                         gradedItems={currentResult.metadata?.detailed_review || []}
+                                        writingBreakdown={currentResult.metadata?.writing_breakdown}
                                         onClose={() => setShowReview(false)}
                                     />
                                 )}
 
                                 {/* SuperScore Card (TOEFL only) */}
-                                {selectedExam === 'toefl' && examResults.length > 1 && (
+                                {selectedExam === 'toefl' && examResultsLast2y.length > 1 && (
                                     <div className="bg-gradient-to-br from-gray-900 to-black text-white border rounded-xl p-8 shadow-lg">
                                         <div className="flex flex-col md:flex-row gap-8">
                                             <div className="md:w-1/3 flex flex-col justify-center">
-                                                <div className="text-sm opacity-70 uppercase tracking-wide mb-2">Sum of Highest Section Scores</div>
-                                                <div className="text-6xl font-bold mb-2">
-                                                    {displayMode === 'standard'
-                                                        ? calculateSuperScore(examResults)
-                                                        : toBandScore(calculateSuperScore(examResults), 120)
-                                                    }
+                                                <div className="text-sm opacity-70 uppercase tracking-wide mb-2">
+                                                    MyBest® (Last 2 Years)
                                                 </div>
-                                                <div className="text-sm opacity-70">out of {displayMode === 'standard' ? '120' : '6.0'}</div>
+                                                <div className="text-6xl font-bold mb-2">
+                                                    {displayMode === 'legacy_120'
+                                                        ? calculateSuperScoreLegacy120(examResultsLast2y)
+                                                        : calculateSuperScoreSixScale(examResultsLast2y)}
+                                                </div>
+                                                <div className="text-sm opacity-70">out of {displayMode === 'legacy_120' ? '120' : '6'}</div>
                                             </div>
                                             <div className="md:w-2/3">
-                                                <div className="text-sm mb-4 opacity-80">Your highest section scores from all {examResults.length} test(s) on record</div>
+                                                <div className="text-sm mb-4 opacity-80">Your highest section scores from the last 2 years ({examResultsLast2y.length} test(s))</div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     {renderSuperScoreSection(
-                                                        displayMode === 'standard' ? 'Reading (0-30)' : 'Reading (Band)',
-                                                        getBestScore(examResults, 'reading'),
-                                                        30,
+                                                        displayMode === 'legacy_120' ? 'Reading (0-30)' : 'Reading (1-6)',
+                                                        getBestScore(examResultsLast2y, 'reading'),
+                                                        displayMode === 'legacy_120' ? 30 : 6,
                                                         displayMode
                                                     )}
                                                     {renderSuperScoreSection(
-                                                        displayMode === 'standard' ? 'Listening (0-30)' : 'Listening (Band)',
-                                                        getBestScore(examResults, 'listening'),
-                                                        30,
+                                                        displayMode === 'legacy_120' ? 'Listening (0-30)' : 'Listening (1-6)',
+                                                        getBestScore(examResultsLast2y, 'listening'),
+                                                        displayMode === 'legacy_120' ? 30 : 6,
                                                         displayMode
                                                     )}
                                                     {renderSuperScoreSection(
-                                                        displayMode === 'standard' ? 'Speaking (0-30)' : 'Speaking (Band)',
-                                                        getBestScore(examResults, 'speaking'),
-                                                        30,
+                                                        displayMode === 'legacy_120' ? 'Speaking (0-30)' : 'Speaking (1-6)',
+                                                        getBestScore(examResultsLast2y, 'speaking'),
+                                                        displayMode === 'legacy_120' ? 30 : 6,
                                                         displayMode
                                                     )}
                                                     {renderSuperScoreSection(
-                                                        displayMode === 'standard' ? 'Writing (0-30)' : 'Writing (Band)',
-                                                        getBestScore(examResults, 'writing'),
-                                                        30,
+                                                        displayMode === 'legacy_120' ? 'Writing (0-30)' : 'Writing (1-6)',
+                                                        getBestScore(examResultsLast2y, 'writing'),
+                                                        displayMode === 'legacy_120' ? 30 : 6,
                                                         displayMode
                                                     )}
                                                 </div>
@@ -351,46 +377,49 @@ export default function AnalyticsPage() {
     );
 }
 
-// Helper: Convert to Band Score (1.0 - 6.0, where 6.0 is Best)
-function toBandScore(score: number, max: number): string {
-    if (max === 0) return "0.0";
-    const percentage = score / max;
-    // Linear mapping: 0% -> 1.0, 100% -> 6.0
-    const band = 1 + (percentage * 5);
-    return band.toFixed(1);
-}
-
-function renderSectionBox(title: string, score: number, max: number, mode: 'standard' | 'band' = 'standard') {
-    const displayScore = mode === 'standard' ? score : toBandScore(score, max);
-    const displayMax = mode === 'standard' ? max : "6.0";
-
+function renderSectionBox(title: string, score: number, max: number, _mode: 'six_scale' | 'legacy_120' = 'six_scale') {
     return (
         <div className="bg-muted/30 rounded-lg p-4 text-center">
             <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{title}</div>
-            <div className="text-3xl font-bold mb-1">{displayScore}</div>
-            <div className="text-xs text-muted-foreground">out of {displayMax}</div>
+            <div className="text-3xl font-bold mb-1">{score}</div>
+            <div className="text-xs text-muted-foreground">out of {max}</div>
         </div>
     );
 }
 
-function renderSuperScoreSection(title: string, score: number, max: number = 30, mode: 'standard' | 'band' = 'standard') {
-    const displayScore = mode === 'standard' ? score : toBandScore(score, max);
+function renderSuperScoreSection(title: string, score: number, max: number = 6, _mode: 'six_scale' | 'legacy_120' = 'six_scale') {
     return (
         <div className="bg-white/10 rounded-lg p-3">
             <div className="text-xs opacity-70 mb-1">{title}</div>
-            <div className="text-2xl font-bold">{displayScore}</div>
+            <div className="text-2xl font-bold">{score}</div>
+            <div className="text-xs opacity-70">out of {max}</div>
         </div>
     );
 }
 
-function calculateSuperScore(results: ScoreData[]): number {
+function calculateSuperScoreSixScale(results: ScoreData[]): number {
+    if (!results || results.length === 0) return 0;
+    const best = {
+        reading: Math.max(...results.map(r => r.scores.reading || 1)),
+        listening: Math.max(...results.map(r => r.scores.listening || 1)),
+        speaking: Math.max(...results.map(r => r.scores.speaking || 1)),
+        writing: Math.max(...results.map(r => r.scores.writing || 1))
+    };
+    const avg = (best.reading + best.listening + best.speaking + best.writing) / 4;
+    return roundToNearestHalf(avg);
+}
+
+function calculateSuperScoreLegacy120(results: ScoreData[]): number {
+    if (!results || results.length === 0) return 0;
     const best = {
         reading: Math.max(...results.map(r => r.scores.reading || 0)),
         listening: Math.max(...results.map(r => r.scores.listening || 0)),
         speaking: Math.max(...results.map(r => r.scores.speaking || 0)),
         writing: Math.max(...results.map(r => r.scores.writing || 0))
     };
-    return best.reading + best.listening + best.speaking + best.writing;
+    const sum030 = best.reading + best.listening + best.speaking + best.writing;
+    if (sum030 > 0) return sum030;
+    return Math.max(...results.map(r => (r.metadata?.legacy_score_0_120_min as number) || 0));
 }
 
 function getBestScore(results: ScoreData[], section: string): number {

@@ -42,6 +42,7 @@ export interface QuestionData {
         originalTopic?: string; // Track the topic used for hybrid generation
         module?: 1 | 2; // Which module this question belongs to (for adaptive testing)
         moduleType?: 'routing' | 'easy' | 'hard'; // Module difficulty type
+        fingerprint?: string; // Stable-ish hash used to avoid near-duplicate reuse
     };
 
     // For multi-question tasks (Listening sets)

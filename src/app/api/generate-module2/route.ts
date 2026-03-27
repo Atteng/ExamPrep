@@ -5,7 +5,7 @@ import { getRecentTopics, recordTopic } from "@/lib/db/actions";
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { examType, section, module1Score, userId } = body; // accept userId
+        const { examType, section, module1Score, userId, generationMode } = body; // accept userId
 
         if (!examType || !section || module1Score === undefined) {
             return NextResponse.json(
@@ -36,9 +36,9 @@ export async function POST(request: Request) {
             // 1 Complete Words × 10 = 10 items
             // 1 Academic × 5 = 5 items
             const [dailyLife, completeWords, academic] = await Promise.all([
-                generateQuestions(examType, section, 'Read in Daily Life', 4, excludeTopics, targetLevel),
-                generateQuestions(examType, section, 'Complete The Words', 1, excludeTopics, targetLevel), // Cloze is very sensitive to level
-                generateQuestions(examType, section, 'Read an Academic Passage', 1, excludeTopics, targetLevel)
+                generateQuestions(examType, section, 'Read in Daily Life', 4, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Complete The Words', 1, excludeTopics, targetLevel, generationMode || 'balanced'), // Cloze is very sensitive to level
+                generateQuestions(examType, section, 'Read an Academic Passage', 1, excludeTopics, targetLevel, generationMode || 'balanced')
             ]);
 
             questions = [...dailyLife, ...completeWords, ...academic].map(q => ({
@@ -58,9 +58,9 @@ export async function POST(request: Request) {
             // 2 Announcements × 3 = 6 items
             // 2 Academic Talks × 4 = 8 items
             const [conversation, announcement, academicTalk] = await Promise.all([
-                generateQuestions(examType, section, 'Listen to a Conversation', 3, excludeTopics, targetLevel),
-                generateQuestions(examType, section, 'Listen to an Announcement', 2, excludeTopics, targetLevel),
-                generateQuestions(examType, section, 'Listen to an Academic Talk', 2, excludeTopics, targetLevel)
+                generateQuestions(examType, section, 'Listen to a Conversation', 3, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Announcement', 2, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Academic Talk', 2, excludeTopics, targetLevel, generationMode || 'balanced')
             ]);
 
             questions = [...conversation, ...announcement, ...academicTalk].map(q => ({

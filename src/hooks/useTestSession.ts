@@ -10,13 +10,17 @@ interface UseTestSessionProps {
     onComplete: (results: any) => void;
     examType?: string; // e.g., 'toefl'
     section?: string; // e.g., 'reading', 'listening'
+    generationMode?: 'balanced' | 'fresh' | 'fast';
 }
 
-export function useTestSession({ questions: initialQuestions, timeLimit, onComplete, examType, section }: UseTestSessionProps) {
+export function useTestSession({ questions: initialQuestions, timeLimit, onComplete, examType, section, generationMode = 'balanced' }: UseTestSessionProps) {
     const [questions, setQuestions] = useState<QuestionData[]>(initialQuestions);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, any>>({});
+    // Section timer (used for Reading/Listening/Writing)
     const [timeLeft, setTimeLeft] = useState(timeLimit);
+    // Per-task timer (used for Speaking)
+    const [taskTimeLeft, setTaskTimeLeft] = useState<number | null>(null);
     const [isActive, setIsActive] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
 
@@ -31,10 +35,61 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
     const module1Questions = questions.filter(q => q.metadata?.module === 1);
     const module1EndIndex = module1Questions.length - 1;
 
+    const isSpeakingSection = (section || '').toLowerCase() === 'speaking';
+    const isListeningSection = (section || '').toLowerCase() === 'listening';
+
+    const getSpeakingTaskTime = useCallback((q: QuestionData): number => {
+        const taskType = (q.taskType || "").toLowerCase();
+        // From TOEFL iBT Overview New Format (txt extract): Interview responses are 45 seconds each.
+        if (taskType.includes('interview')) return 45;
+        // Listen & Repeat is a short repeat task; keep it strict to simulate timed repetition.
+        if (taskType.includes('repeat')) return 15;
+        // Default speaking fallback
+        return 30;
+    }, []);
+
+    // When question changes, reset task timer for speaking.
+    useEffect(() => {
+        if (!isSpeakingSection) {
+            setTaskTimeLeft(null);
+            return;
+        }
+        const q = questions[currentIndex];
+        if (!q) return;
+        setTaskTimeLeft(getSpeakingTaskTime(q));
+    }, [currentIndex, isSpeakingSection, questions, getSpeakingTaskTime]);
+
     // Timer Logic
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (isActive && timeLeft > 0 && !isLoadingModule2) {
+        if (!isActive || isLoadingModule2) return () => clearInterval(interval);
+
+        // Speaking: per-task timer (auto-advance when a task ends)
+        if (isSpeakingSection) {
+            if (taskTimeLeft === null || taskTimeLeft <= 0) return () => clearInterval(interval);
+            interval = setInterval(() => {
+                setTaskTimeLeft((prev) => {
+                    if (prev === null) return prev;
+                    if (prev <= 1) {
+                        clearInterval(interval);
+                        // Auto-advance to next question (or complete). Speaking isn't adaptive.
+                        setCurrentIndex((idx) => {
+                            if (idx < questions.length - 1) return idx + 1;
+                            setIsCompleted(true);
+                            setIsActive(false);
+                            onComplete(answers);
+                            return idx;
+                        });
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+
+        // Other sections: section timer (auto-submit when section ends)
+        if (timeLeft > 0) {
             interval = setInterval(() => {
                 setTimeLeft((prev) => {
                     if (prev <= 1) {
@@ -48,7 +103,7 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isActive, timeLeft, onComplete, answers, isLoadingModule2]);
+    }, [isActive, timeLeft, onComplete, answers, isLoadingModule2, isSpeakingSection, taskTimeLeft, questions.length]);
 
     // Module transition logic
     const loadModule2 = useCallback(async () => {
@@ -61,10 +116,41 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
         const module1Answers = Object.entries(answers).filter(([qId]) =>
             module1Questions.some(q => q.id === qId)
         );
-        const correctCount = module1Answers.filter(([qId, answer]) => {
+
+        const normalize = (val: any) => String(val ?? "")
+            .replace(/^[A-D]\.\s*/i, "")
+            .trim();
+
+        const correctCount = module1Answers.reduce((count, [qId, answer]) => {
             const question = module1Questions.find(q => q.id === qId);
-            return question && String(answer).trim() === String(question.answerKey).trim();
-        }).length;
+            if (!question) return count;
+
+            // Listening sets: answer is JSON map { "0": "...", "1": "..." } and keys are per sub-question.
+            if (question.questions && question.questions.length > 0) {
+                let userMap: Record<string, string> = {};
+                try {
+                    userMap = typeof answer === 'string' && answer.trim().startsWith('{') ? JSON.parse(answer) : {};
+                } catch {
+                    userMap = {};
+                }
+
+                const totalSub = question.questions.length;
+                const correctSub = question.questions.reduce((subCount: number, subQ: any, idx: number) => {
+                    const userVal = normalize(userMap[idx] ?? userMap[String(idx)] ?? "");
+                    const keyVal = normalize(subQ.answerKey ?? subQ.answer ?? "");
+                    return subCount + (userVal !== "" && userVal === keyVal ? 1 : 0);
+                }, 0);
+
+                // Count this set as "correct" if majority of its sub-questions are correct.
+                if (totalSub > 0 && correctSub / totalSub >= 0.6) return count + 1;
+                return count;
+            }
+
+            // Standard single question logic
+            const userVal = normalize(answer);
+            const keyVal = normalize(question.answerKey);
+            return count + (userVal !== "" && userVal === keyVal ? 1 : 0);
+        }, 0);
         const module1Score = module1Questions.length > 0
             ? Math.round((correctCount / module1Questions.length) * 100)
             : 0;
@@ -83,7 +169,8 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
                     examType,
                     section,
                     module1Score,
-                    userId: user?.id
+                    userId: user?.id,
+                    generationMode
                 })
             });
 
@@ -137,6 +224,9 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
     }, [currentIndex, questions.length, answers, onComplete, isAdaptiveSection, module1EndIndex, module2Loaded, loadModule2]);
 
     const prevQuestion = useCallback(() => {
+        // TOEFL Listening: no going back to previous questions once you move on.
+        if (isListeningSection) return;
+
         // Prevent going back to Module 1 if in Module 2
         if (module1Locked && currentIndex <= module1EndIndex) {
             return; // Block navigation
@@ -145,16 +235,19 @@ export function useTestSession({ questions: initialQuestions, timeLimit, onCompl
         if (currentIndex > 0) {
             setCurrentIndex((prev) => prev - 1);
         }
-    }, [currentIndex, module1Locked, module1EndIndex]);
+    }, [currentIndex, module1Locked, module1EndIndex, isListeningSection]);
 
     // Determine if "Back" button should be disabled
-    const canGoBack = currentIndex > 0 && !(module1Locked && currentIndex <= module1EndIndex + 1);
+    const canGoBack =
+        currentIndex > 0 &&
+        !isListeningSection &&
+        !(module1Locked && currentIndex <= module1EndIndex + 1);
 
     return {
         currentIndex,
         currentQuestion: questions[currentIndex],
         totalQuestions: questions.length,
-        timeLeft,
+        timeLeft: isSpeakingSection ? (taskTimeLeft ?? 0) : timeLeft,
         isActive,
         isCompleted,
         currentAnswer: answers[questions[currentIndex]?.id],

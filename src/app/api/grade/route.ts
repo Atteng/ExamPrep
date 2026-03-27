@@ -2,123 +2,17 @@ import { NextResponse } from "next/server";
 import { model, generateWithRetry } from "@/lib/gemini";
 import { Part } from "@google/generative-ai";
 import { RUBRICS } from "@/lib/grading/rubrics";
+import { gradeObjectiveSubmission } from "@/lib/grading/objectiveGrader";
+
+const normalizeAnswer = (ans: any) => String(ans ?? "").replace(/^[A-D]\.\s*/i, "").trim();
 
 // Helper for grading a single item
 async function gradeSingleItem(submission: any) {
     const { examType, section, taskType, question, userAnswer } = submission;
 
     // 1. Objective Grading (Multiple Choice / Fill Blank / Build Sentence)
-    if ((['reading', 'listening'].includes(section) || (section === 'writing' && (taskType === 'Build a Sentence' || taskType === 'build_sentence'))) && (question.answerKey || question.target_sentence)) {
-
-        // Special Case: Build a Sentence
-        if (taskType === 'Build a Sentence' || taskType === 'build_sentence') {
-            const target = question.structure?.example?.target_sentence || question.answerKey || "";
-            // Use a fuzzy check if exact match is too strict, but for now exact or includes
-            const isCorrect = String(userAnswer).trim() === String(target).trim();
-            return {
-                questionId: question.id,
-                score: isCorrect ? 100 : 0,
-                feedback: isCorrect ? "Correct!" : `Incorrect. The correct sentence was: "${target}"`,
-                details: { rawScore: isCorrect ? 1 : 0, maxScore: 1 }
-            };
-        }
-
-        // Special Logic for 'Complete The Words' (Partial Scoring)
-        if (taskType === 'Complete The Words' || taskType === 'complete_words') {
-            const userParts = String(userAnswer).split(',').map(s => s.trim().toLowerCase());
-
-            // Parse Answer Key: "(1) ght (2) at ..." -> ["ght", "at"]
-            const answerParts: string[] = [];
-            const matches = Array.from(String(question.answerKey).matchAll(/\(\d+\)\s*(\w+)/g));
-            for (const match of matches) {
-                answerParts.push(match[1].toLowerCase());
-            }
-
-            let correctCount = 0;
-            const total = answerParts.length;
-
-            answerParts.forEach((correct, idx) => {
-                if (userParts[idx] === correct) correctCount++;
-            });
-
-            const score = total > 0 ? (correctCount / total) * 100 : 0;
-
-            return {
-                questionId: question.id,
-                score: Math.round(score),
-                feedback: `You got ${correctCount} out of ${total} correct.`,
-                details: {
-                    rawScore: correctCount,
-                    maxScore: total,
-                    userAnswers: userParts,
-                    correctAnswers: answerParts
-                }
-            };
-        }
-
-        // Check if this is a Multi-Question Set (Listening Passage)
-        if (question.questions && question.questions.length > 0) {
-            let userMap: Record<string, string> = {};
-            try {
-                // If answer is simple string, it's likely just the first answer (legacy bug) or single Q
-                // If it's JSON, parse it
-                if (typeof userAnswer === 'string' && userAnswer.startsWith('{')) {
-                    userMap = JSON.parse(userAnswer);
-                } else {
-                    userMap = { 0: String(userAnswer) };
-                }
-            } catch (e) { userMap = { 0: String(userAnswer) }; }
-
-            let totalSub = question.questions.length;
-            let correctSub = 0;
-            const subResults: any[] = [];
-
-            question.questions.forEach((subQ: any, idx: number) => {
-                const userVal = userMap[idx] || "";
-                const cleanKey = String(subQ.answerKey).trim();
-                const isSubCorrect = String(userVal).trim() === cleanKey || (
-                    subQ.options && subQ.options.some((opt: string) => opt.includes(userVal) && opt.includes(cleanKey))
-                );
-                if (isSubCorrect) correctSub++;
-                subResults.push({
-                    id: idx,
-                    status: isSubCorrect ? 'correct' : 'incorrect',
-                    user: userVal,
-                    correct: cleanKey
-                });
-            });
-
-            return {
-                questionId: question.id,
-                score: (correctSub / totalSub) * 100,
-                feedback: `You got ${correctSub} out of ${totalSub} questions correct.`,
-                details: {
-                    rawScore: correctSub,
-                    maxScore: totalSub,
-                    subQuestions: subResults
-                }
-            };
-        }
-
-        // Standard Single Question Logic
-        // Clean Answer Key (remove "A. " from "A. Option")
-        const cleanKey = String(question.answerKey).trim();
-        const isCorrect = String(userAnswer).trim() === cleanKey || (
-            typeof question.answerKey === 'string' &&
-            question.options &&
-            question.options.some((opt: string) => opt.includes(userAnswer) && opt.includes(cleanKey))
-        );
-
-        return {
-            questionId: question.id,
-            score: isCorrect ? 100 : 0,
-            feedback: isCorrect ? "Correct!" : `Incorrect. The correct answer was: ${cleanKey}`,
-            details: {
-                rawScore: isCorrect ? 1 : 0,
-                maxScore: 1
-            }
-        };
-    }
+    const objectiveResult = gradeObjectiveSubmission(submission);
+    if (objectiveResult) return objectiveResult;
 
     // 2. Subjective Grading (Writing / Speaking) via AI
     try {

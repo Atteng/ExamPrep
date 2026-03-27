@@ -5,34 +5,35 @@ export const EXAM_CONFIGS: Record<string, ExamConfig> = {
         id: "toefl",
         title: "TOEFL iBT",
         description: "Test of English as a Foreign Language",
-        scoring: { min: 0, max: 120, increment: 1 },
+        // TOEFL iBT (updated format) uses a 1–6 band scale in 0.5 increments.
+        scoring: { min: 1, max: 6, increment: 0.5 },
         sections: [
             {
                 id: "reading",
                 title: "Reading Section",
-                timeLimit: 35 * 60, // 35 minutes
-                questionCount: 20, // Approx
-                instructions: "Read the passages and answer the questions. You can go back to previous questions within this section.",
+                timeLimit: 27 * 60, // About 27 minutes (multistage/adaptive)
+                questionCount: 42, // Official range ~35–48
+                instructions: "Read the texts and answer the questions. The Reading section is multistage/adaptive, so the length and difficulty may vary.",
             },
             {
                 id: "listening",
                 title: "Listening Section",
-                timeLimit: 36 * 60, // 36 minutes
-                questionCount: 28, // Approx
-                instructions: "Listen to the audio clips. You will hear each clip only once. You cannot go back to previous questions.",
+                timeLimit: 27 * 60, // About 27 minutes (multistage/adaptive)
+                questionCount: 40, // Official range ~35–45
+                instructions: "Listen to the audio and answer the questions. You will hear each clip only once. The Listening section is multistage/adaptive, so the length and difficulty may vary.",
             },
             {
                 id: "speaking",
                 title: "Speaking Section",
-                timeLimit: 16 * 60, // 16 minutes
-                questionCount: 4,
+                timeLimit: 8 * 60,
+                questionCount: 11,
                 instructions: "Speak clearly into the microphone. Your responses will be recorded and graded.",
             },
             {
                 id: "writing",
                 title: "Writing Section",
-                timeLimit: 29 * 60, // 29 minutes
-                questionCount: 2,
+                timeLimit: 23 * 60, // About 23 minutes
+                questionCount: 12,
                 instructions: "Write your responses in the text box provided. Pay attention to grammar and vocabulary.",
             },
         ],

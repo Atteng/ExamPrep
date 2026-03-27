@@ -7,6 +7,33 @@ import { TestTemplate } from "./testTemplates";
 import { TOEFL_PROMPT, GRE_PROMPT, GERMAN_PROMPT } from "./promptTemplates";
 import toeflData from "@/data/toefl_source_data.json";
 import { getLibraryContent, saveLibraryContent, findGlobalQuestions, saveGeneratedQuestions } from "@/lib/db/actions";
+import { createHash } from "crypto";
+
+export type GenerationMode = 'balanced' | 'fresh' | 'fast';
+
+function computeFingerprint(q: QuestionData): string {
+    const payload = {
+        examType: q.examType,
+        section: q.section,
+        taskType: q.taskType,
+        prompt: q.prompt,
+        text: q.text,
+        context: q.context,
+        options: q.options,
+        questions: q.questions?.map(sq => ({
+            prompt: sq.prompt,
+            options: sq.options
+        }))
+    };
+    return createHash('sha1').update(JSON.stringify(payload)).digest('hex');
+}
+
+function shouldUseCache(mode: GenerationMode) {
+    if (mode === 'fresh') return false;
+    if (mode === 'fast') return true;
+    // balanced: prefer a mix of new + cached content
+    return Math.random() >= 0.5;
+}
 
 // Helper to find examples in source data
 function getSourceData(taskType: string) {
@@ -88,10 +115,11 @@ async function fetchOrGenerateContent(
     contentType: string,
     topic: string,
     level: string,
-    aiPrompt: string
+    aiPrompt: string,
+    generationMode: GenerationMode = 'balanced'
 ): Promise<{ text: string, source: 'official-seed' | 'ai-generated' }> {
     // 1. Try Cache
-    try {
+    if (shouldUseCache(generationMode)) try {
         const cachedItem = await getLibraryContent(contentType, { topic, level });
         if (cachedItem) {
             console.log(`🟢 HIT: Using Cached Content for [${contentType}]`);
@@ -118,7 +146,8 @@ export async function generateQuestions(
     taskType: string,
     count: number = 1,
     excludeTopics: string[] = [], // Phase 16: History Tracking
-    difficulty: string = 'B2' // Adaptive Level (B1/B2/C1/C2)
+    difficulty: string = 'B2', // Adaptive Level (B1/B2/C1/C2)
+    generationMode: GenerationMode = 'balanced'
 ): Promise<QuestionData[]> {
     const sourceTask = getSourceData(taskType);
 
@@ -130,7 +159,9 @@ export async function generateQuestions(
     // 1. Try to find existing questions in the global pool that match criteria
     console.log(`🔍 Searching Global Library for [${taskType}]...`);
     // Assume search returns random set of matching questions
-    const existingQuestions = await findGlobalQuestions(examType, section, taskType, count, difficulty);
+    const existingQuestions = shouldUseCache(generationMode)
+        ? await findGlobalQuestions(examType, section, taskType, count, difficulty)
+        : [];
 
     // Filter cached questions by excluded topics
     const filteredQuestions = existingQuestions.filter(q => {
@@ -138,12 +169,21 @@ export async function generateQuestions(
         return !questionTopic || !excludeTopics.includes(questionTopic);
     });
 
-    console.log(`✅ FOUND ${existingQuestions.length} cached questions, ${filteredQuestions.length} after topic filtering.`);
+    // Validate cached questions to avoid serving malformed sets
+    const validatedCached = filteredQuestions.filter(q => {
+        try {
+            return validateQuestion(q).valid;
+        } catch {
+            return false;
+        }
+    });
+
+    console.log(`✅ FOUND ${existingQuestions.length} cached questions, ${validatedCached.length} after validation/topic filtering.`);
 
     // If we have enough after filtering, return them
-    if (filteredQuestions.length >= count) {
+    if (validatedCached.length >= count) {
         // IMPORTANT: Shuffle options for cached questions too!
-        const shuffledExisting = filteredQuestions.map(q => {
+        const shuffledExisting = validatedCached.map(q => {
             if (q.options && q.options.length > 0) {
                 return {
                     ...q,
@@ -173,12 +213,12 @@ export async function generateQuestions(
     let newQuestions: QuestionData[] = [];
 
     // If we have SOME filtered questions but not enough, use them and generate the rest
-    if (filteredQuestions.length > 0) {
-        console.log(`⚠️ Only ${filteredQuestions.length} valid cached questions. Generating ${count - filteredQuestions.length} more.`);
+    if (validatedCached.length > 0) {
+        console.log(`⚠️ Only ${validatedCached.length} valid cached questions. Generating ${count - validatedCached.length} more.`);
         // Update 'needed' to reflect what we still need after using filtered cache
-        needed = count - filteredQuestions.length;
+        needed = count - validatedCached.length;
         // Add the filtered questions to our result set
-        const shuffledPartial = filteredQuestions.map(q => {
+        const shuffledPartial = validatedCached.map(q => {
             if (q.options && q.options.length > 0) {
                 return { ...q, options: shuffleArray(q.options) };
             }
@@ -210,7 +250,8 @@ export async function generateQuestions(
             'reading_passage_short',
             topic,
             level,
-            `Write a single academic paragraph about ${topic}. Requirements: CEFR Level ${level}, Length 80 words. Tone: Educational. Output: Just raw text.`
+            `Write a single academic paragraph about ${topic}. Requirements: CEFR Level ${level}, Length 80 words. Tone: Educational. Output: Just raw text.`,
+            generationMode
         );
 
         // Sanitize text
@@ -267,7 +308,8 @@ export async function generateQuestions(
             contentType,
             topic,
             level,
-            promptText
+            promptText,
+            generationMode
         );
 
         // 2. Process Content into Question Objects
@@ -425,32 +467,39 @@ export async function generateQuestions(
         `;
 
         try {
-            const result = await generateWithRetry(async () => await model.generateContent(chooseResponsePrompt));
-            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(raw) as QuestionData[];
+            const validNew: QuestionData[] = [];
+            for (let attempt = 0; attempt < 3 && validNew.length < needed; attempt++) {
+                const remaining = needed - validNew.length;
+                const prompt = chooseResponsePrompt.replace(`Generate ${needed}`, `Generate ${remaining}`);
+                const result = await generateWithRetry(async () => await model.generateContent(prompt));
+                const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(raw) as QuestionData[];
 
-            const validated = parsed.map(q => {
-                // Shuffle options to randomize correct answer position
-                if (q.options && q.options.length > 0) {
-                    const correctAnswer = q.answerKey;
-                    const shuffled = shuffleArray(q.options);
-
+                const mapped = parsed.map(q => {
+                    if (q.options && q.options.length > 0) {
+                        const correctAnswer = q.answerKey;
+                        const shuffled = shuffleArray(q.options);
+                        return {
+                            ...q,
+                            id: crypto.randomUUID(),
+                            options: shuffled,
+                            answerKey: correctAnswer,
+                            metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                        };
+                    }
                     return {
                         ...q,
                         id: crypto.randomUUID(),
-                        options: shuffled,
-                        answerKey: correctAnswer, // Keep original text, matching will handle it
                         metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
                     };
-                }
+                });
 
-                return {
-                    ...q,
-                    id: crypto.randomUUID(),
-                    metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
-                };
-            });
-            newQuestions.push(...validated);
+                for (const q of mapped) {
+                    if (validateQuestion(q).valid) validNew.push(q);
+                }
+            }
+
+            newQuestions.push(...validNew.slice(0, needed));
 
         } catch (e) {
             console.error("Listen & Choose Gen Failed:", e);
@@ -497,38 +546,44 @@ export async function generateQuestions(
         `;
 
         try {
-            const result = await generateWithRetry(async () => await model.generateContent(listeningPrompt));
-            const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(raw) as QuestionData[];
+            const validNew: QuestionData[] = [];
+            for (let attempt = 0; attempt < 3 && validNew.length < needed; attempt++) {
+                const remaining = needed - validNew.length;
+                const prompt = listeningPrompt.replace(`Generate ${needed} Listening Passage(s)`, `Generate ${remaining} Listening Passage(s)`);
+                const result = await generateWithRetry(async () => await model.generateContent(prompt));
+                const raw = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(raw) as QuestionData[];
 
-            const validated = parsed.map(q => {
-                // Shuffle sub-question options if they exist
-                if (q.questions && q.questions.length > 0) {
-                    const shuffledQuestions = q.questions.map((subQ: any) => {
-                        if (subQ.options && subQ.options.length > 0) {
-                            return {
-                                ...subQ,
-                                options: shuffleArray(subQ.options)
-                            };
-                        }
-                        return subQ;
-                    });
+                const mapped = parsed.map(q => {
+                    if (q.questions && q.questions.length > 0) {
+                        const shuffledQuestions = q.questions.map((subQ: any) => {
+                            if (subQ.options && subQ.options.length > 0) {
+                                return { ...subQ, options: shuffleArray(subQ.options) };
+                            }
+                            return subQ;
+                        });
+
+                        return {
+                            ...q,
+                            id: crypto.randomUUID(),
+                            questions: shuffledQuestions,
+                            metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
+                        };
+                    }
 
                     return {
                         ...q,
                         id: crypto.randomUUID(),
-                        questions: shuffledQuestions,
                         metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
                     };
-                }
+                });
 
-                return {
-                    ...q,
-                    id: crypto.randomUUID(),
-                    metadata: { source: 'ai-generated' as const, difficulty: 'medium' as const, originalTopic: topic }
-                };
-            });
-            newQuestions.push(...validated);
+                for (const q of mapped) {
+                    if (validateQuestion(q).valid) validNew.push(q);
+                }
+            }
+
+            newQuestions.push(...validNew.slice(0, needed));
 
         } catch (e) {
             console.error("Listening Generation Failed:", e);
@@ -609,6 +664,15 @@ export async function generateQuestions(
     // --- SAVE TO GLOBAL POOL ---
     if (newQuestions.length > 0) {
         console.log(`💾 Saving ${newQuestions.length} new questions to Global Library...`);
+        // Attach a stable-ish fingerprint for local duplicate blocking.
+        newQuestions = newQuestions.map(q => ({
+            ...q,
+            metadata: {
+                ...q.metadata,
+                fingerprint: q.metadata?.fingerprint || computeFingerprint(q)
+            }
+        }));
+
         // Map to DB format: { exam_type, section, content }
         const dbPayload = newQuestions.map(q => ({
             exam_type: q.examType,
@@ -619,7 +683,13 @@ export async function generateQuestions(
     }
 
     // Check if we have enough total
-    const total = [...existingQuestions, ...newQuestions];
+    const total = [...existingQuestions, ...newQuestions].map(q => ({
+        ...q,
+        metadata: {
+            ...q.metadata,
+            fingerprint: q.metadata?.fingerprint || computeFingerprint(q)
+        }
+    }));
     if (total.length === 0) {
         throw new Error("Failed to generate or retrieve any questions.");
     }
@@ -627,7 +697,12 @@ export async function generateQuestions(
     return total;
 }
 
-export async function generateFullTest(template: TestTemplate, examType: string = 'toefl', difficulty: string = 'B2'): Promise<QuestionData[]> {
+export async function generateFullTest(
+    template: TestTemplate,
+    examType: string = 'toefl',
+    difficulty: string = 'B2',
+    generationMode: GenerationMode = 'balanced'
+): Promise<QuestionData[]> {
     console.log(`🚀 Starting Full Test Generation [Mode: ${template.mode}, Level: ${difficulty}]`);
     const allQuestions: QuestionData[] = [];
     const tasks: { section: string, taskType: string, count: number }[] = [];
@@ -648,8 +723,23 @@ export async function generateFullTest(template: TestTemplate, examType: string 
         try {
             console.log(`..Generating ${task.section} / ${task.taskType} [${difficulty}]`);
             // Pass the difficulty level explicitly
-            const qs = await generateQuestions(examType, task.section, task.taskType, task.count, [], difficulty);
-            allQuestions.push(...qs);
+            const qs = await generateQuestions(examType, task.section, task.taskType, task.count, [], difficulty, generationMode);
+
+            // TOEFL Reading/Listening are multistage (Module 1 routing -> Module 2).
+            // Mark full-test generated Reading/Listening items as Module 1 so the session hook can trigger Module 2 generation.
+            const mapped =
+                examType === 'toefl' && (task.section === 'reading' || task.section === 'listening')
+                    ? qs.map(q => ({
+                        ...q,
+                        metadata: {
+                            ...q.metadata,
+                            module: 1 as 1 | 2,
+                            moduleType: 'routing' as 'routing' | 'easy' | 'hard'
+                        }
+                    }))
+                    : qs;
+
+            allQuestions.push(...mapped);
         } catch (err) {
             console.error(`Failed to generate ${task.taskType}, skipping.`);
         }

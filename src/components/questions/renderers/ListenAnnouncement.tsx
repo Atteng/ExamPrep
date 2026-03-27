@@ -71,6 +71,8 @@ export default function ListenAnnouncement({
     }, [question.id, reviewMode]);
 
     const handlePlayAudio = () => {
+        // TOEFL Listening: audio plays once in test mode (replay allowed in review mode only)
+        if (!reviewMode && flowState !== 'initial') return;
         if (isPlayingRef.current) return; // Prevent concurrent calls
 
         isPlayingRef.current = true;

@@ -8,6 +8,7 @@ import { TestResults } from "@/components/TestEngine/TestResults";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { BookOpen, Headphones, Mic, PenTool, PlayCircle, Loader2 } from "lucide-react";
+import { bandFromPercent, concordanceOverall120, overallBandFromSections, roundToNearestHalf, bandFromObjectiveRaw } from "@/lib/scoring/toefl2026";
 
 
 
@@ -41,9 +42,16 @@ export default function PracticePage() {
     const [selectedTaskType, setSelectedTaskType] = useState("Read in Daily Life");
     const [practiceMode, setPracticeMode] = useState<'full' | 'section'>('full');
     const [testDifficulty, setTestDifficulty] = useState('practice');
+    const [varietyMode, setVarietyMode] = useState<'balanced' | 'fresh' | 'fast'>('balanced');
     const [isTestActive, setIsTestActive] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [questions, setQuestions] = useState<QuestionData[]>(MOCK_QUESTIONS);
+
+    // Full-test (sectioned) state
+    const [fullTestSection, setFullTestSection] = useState<'reading' | 'listening' | 'speaking' | 'writing'>('reading');
+    const [fullTestBank, setFullTestBank] = useState<Record<string, QuestionData[]>>({});
+    const [fullTestAllQuestions, setFullTestAllQuestions] = useState<QuestionData[]>([]);
+    const [fullTestAnswers, setFullTestAnswers] = useState<Record<string, any>>({});
 
     // User Status
     const [isPro, setIsPro] = useState(false);
@@ -68,14 +76,15 @@ export default function PracticePage() {
 
             // Determine API payload
             const payload = practiceMode === 'full'
-                ? { mode: 'full', difficulty: testDifficulty, examType: selectedExam, userId: user?.id }
+                ? { mode: 'full', difficulty: testDifficulty, examType: selectedExam, userId: user?.id, generationMode: varietyMode }
                 : {
                     mode: 'section',
                     examType: selectedExam,
                     section: selectedSection,
                     taskType: selectedTaskType,
                     count: 5,
-                    userId: user?.id
+                    userId: user?.id,
+                    generationMode: varietyMode
                 };
 
             const res = await fetch('/api/generate', {
@@ -91,7 +100,52 @@ export default function PracticePage() {
 
             const data = await res.json();
             if (data.questions && data.questions.length > 0) {
-                setQuestions(data.questions);
+                // Local duplicate blocking (per user + exam): avoid re-serving the same fingerprint too soon.
+                // Keeps last ~500 fingerprints.
+                const storageKey = `examprep_seen_${user?.id || 'anon'}_${selectedExam}`;
+                let seen: string[] = [];
+                try {
+                    const raw = localStorage.getItem(storageKey);
+                    seen = raw ? JSON.parse(raw) : [];
+                } catch { }
+                const seenSet = new Set(seen);
+
+                const filtered = (data.questions as QuestionData[]).filter(q => {
+                    const fp = q.metadata?.fingerprint;
+                    if (!fp) return true;
+                    return !seenSet.has(fp);
+                });
+
+                // If we filtered too aggressively (e.g., fast mode with a hot cache), fall back to original list.
+                const finalList = filtered.length >= Math.max(5, Math.floor((data.questions as any[]).length * 0.6))
+                    ? filtered
+                    : (data.questions as QuestionData[]);
+
+                // Update seen list with whatever we’re about to serve.
+                const nextSeen = [...seen];
+                finalList.forEach(q => {
+                    const fp = q.metadata?.fingerprint;
+                    if (fp && !seenSet.has(fp)) nextSeen.push(fp);
+                });
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(nextSeen.slice(-500)));
+                } catch { }
+
+                if (practiceMode === 'full') {
+                    // Section the full test so each TOEFL section runs with its own timing rules.
+                    const bySection: Record<string, QuestionData[]> = { reading: [], listening: [], speaking: [], writing: [] };
+                    finalList.forEach((q: QuestionData) => {
+                        const sec = (q.section || '').toLowerCase();
+                        if (bySection[sec]) bySection[sec].push(q);
+                    });
+                    setFullTestAllQuestions(finalList);
+                    setFullTestBank(bySection);
+                    setFullTestAnswers({});
+                    setFullTestSection('reading');
+                    setQuestions(bySection.reading.length > 0 ? bySection.reading : finalList);
+                } else {
+                    setQuestions(finalList);
+                }
             } else {
                 console.warn("No questions generated, using mock data.");
                 setQuestions(MOCK_QUESTIONS);
@@ -109,6 +163,31 @@ export default function PracticePage() {
 
     const handleExit = () => {
         setIsTestActive(false);
+        setFullTestBank({});
+        setFullTestAllQuestions([]);
+        setFullTestAnswers({});
+        setFullTestSection('reading');
+    };
+
+    const getToeflSectionTimeLimitSeconds = (sectionId: string) => {
+        // From TOEFL iBT Overview New Format (txt extract in extras/TOEFL iBT Overview New Format.txt)
+        switch (sectionId) {
+            case 'reading':
+                return 27 * 60;
+            case 'listening':
+                return 27 * 60;
+            case 'speaking':
+                return 8 * 60;
+            case 'writing':
+                return 23 * 60;
+            default:
+                return 20 * 60;
+        }
+    };
+
+    const fullTestTitle = () => {
+        const sec = fullTestSection.charAt(0).toUpperCase() + fullTestSection.slice(1);
+        return `TOEFL iBT Full Test — ${sec}`;
     };
 
     return (
@@ -208,6 +287,42 @@ export default function PracticePage() {
                                                 </button>
                                             ))}
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Variety</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            onClick={() => setVarietyMode('fast')}
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg border text-sm transition-all",
+                                                varietyMode === 'fast' ? "border-primary bg-primary/5 ring-1 ring-primary" : "bg-card border-border text-muted-foreground"
+                                            )}
+                                            title="Faster/cheaper: uses cache more often"
+                                        >
+                                            Fast
+                                        </button>
+                                        <button
+                                            onClick={() => setVarietyMode('balanced')}
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg border text-sm transition-all",
+                                                varietyMode === 'balanced' ? "border-primary bg-primary/5 ring-1 ring-primary" : "bg-card border-border text-muted-foreground"
+                                            )}
+                                            title="Recommended: mix cache + new generation with duplicate blocking"
+                                        >
+                                            Balanced
+                                        </button>
+                                        <button
+                                            onClick={() => setVarietyMode('fresh')}
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg border text-sm transition-all",
+                                                varietyMode === 'fresh' ? "border-primary bg-primary/5 ring-1 ring-primary" : "bg-card border-border text-muted-foreground"
+                                            )}
+                                            title="Most variety: generates new content more often"
+                                        >
+                                            Fresh
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -383,6 +498,7 @@ export default function PracticePage() {
                             maxScore={finalResults.maxScore}
                             sectionScores={finalResults.sectionScores}
                             gradedItems={finalResults.gradedItems}
+                            writingBreakdown={finalResults.writingBreakdown}
                             onClose={() => {
                                 setShowResults(false);
                                 // If they close the review modal, they likely want to go back to dashboard 
@@ -396,21 +512,22 @@ export default function PracticePage() {
 
                     {isTestActive ? (
                         <TestEngine
+                            key={practiceMode === 'full' ? `full-${fullTestSection}` : `section-${selectedSection}-${selectedTaskType}`}
                             questions={questions}
                             timeLimit={(() => {
                                 // Official TOEFL iBT Section Times
                                 if (practiceMode === 'full') {
-                                    // Full test mode - use total time (90 mins)
-                                    return 90 * 60;
+                                    // Full test runs per section (updated format)
+                                    return getToeflSectionTimeLimitSeconds(fullTestSection);
                                 }
 
                                 // Section Drill - Official Times for "Full Section"
                                 if (selectedTaskType === 'all') {
                                     switch (selectedSection) {
                                         case 'reading':
-                                            return 30 * 60; // 30 minutes (Official Spec)
+                                            return 27 * 60; // About 27 minutes (updated format)
                                         case 'listening':
-                                            return 29 * 60; // 29 minutes (Official Spec)
+                                            return 27 * 60; // About 27 minutes (updated format)
                                         case 'speaking':
                                             return 8 * 60;  // 8 minutes (11 items)
                                         case 'writing':
@@ -443,10 +560,11 @@ export default function PracticePage() {
                                 }
                             })()}
                             title={practiceMode === 'full'
-                                ? `Full ${selectedExam.toUpperCase()} Mock Test`
+                                ? fullTestTitle()
                                 : `${selectedExam.toUpperCase()} ${selectedSection.charAt(0).toUpperCase() + selectedSection.slice(1)} Drill`}
                             examType={selectedExam}
-                            section={selectedSection}
+                            section={practiceMode === 'full' ? fullTestSection : selectedSection}
+                            generationMode={varietyMode}
                             onExit={handleExit}
                             onReview={() => setShowResults(true)}
                             onComplete={async (results) => {
@@ -460,11 +578,39 @@ export default function PracticePage() {
                                         return;
                                     }
 
+                                    // FULL TEST: section-by-section progression
+                                    if (practiceMode === 'full') {
+                                        const merged = { ...fullTestAnswers, ...(results || {}) };
+                                        setFullTestAnswers(merged);
+
+                                        const nextSection =
+                                            fullTestSection === 'reading' ? 'listening' :
+                                                fullTestSection === 'listening' ? 'speaking' :
+                                                    fullTestSection === 'speaking' ? 'writing' :
+                                                        null;
+
+                                        if (nextSection) {
+                                            setFullTestSection(nextSection);
+                                            const nextQs = (fullTestBank as any)[nextSection] as QuestionData[] | undefined;
+                                            if (nextQs && nextQs.length > 0) {
+                                                setQuestions(nextQs);
+                                                return;
+                                            } else {
+                                                console.warn(`No questions found for next section: ${nextSection}. Completing early.`);
+                                                results = merged;
+                                            }
+                                        }
+
+                                        // Final section completed; grade using all answers + all questions.
+                                        results = merged;
+                                    }
+
                                     // 2. Prepare Batch Submission
                                     // We must match results (ID -> Value) back to the generatedQuestions (Full Object)
                                     // Note: The state variable is named 'questions'
+                                    const submissionSource = practiceMode === 'full' && fullTestAllQuestions.length > 0 ? fullTestAllQuestions : questions;
                                     const submissions = Object.entries(results || {}).map(([qId, answer]) => {
-                                        const originalQ = questions.find(q => q.id === qId);
+                                        const originalQ = submissionSource.find(q => q.id === qId);
                                         if (!originalQ) return null;
                                         return {
                                             examType: selectedExam,
@@ -491,7 +637,7 @@ export default function PracticePage() {
                                     // 4. Hydrate Results with Question Data (for Review UI)
                                     // The API returns scores but not the prompt/options. We must merge them.
                                     const hydratedResults = gradedAnswers.map((result: any) => {
-                                        const originalQ = questions.find(q => q.id === result.questionId);
+                                        const originalQ = submissionSource.find(q => q.id === result.questionId);
 
                                         // Extract question text from various possible locations
                                         let questionText = "Question Prompt Missing";
@@ -534,8 +680,15 @@ export default function PracticePage() {
                                     // Calculate Scores (Correctly this time)
                                     // Strategy: Calculate average % per section, scale to 30, then sum for total (max 120)
 
-                                    const sectionSums = { reading: 0, listening: 0, speaking: 0, writing: 0 };
-                                    const sectionCounts = { reading: 0, listening: 0, speaking: 0, writing: 0 };
+                                    const objectiveRaw = {
+                                        reading: { correct: 0, total: 0 },
+                                        listening: { correct: 0, total: 0 },
+                                        writing: { correct: 0, total: 0 }
+                                    };
+                                    const subjectivePct = {
+                                        speaking: { sum: 0, count: 0 },
+                                        writing: { sum: 0, count: 0 }
+                                    };
 
                                     hydratedResults.forEach((item: any) => {
                                         // item.score is 0-100 (from AI)
@@ -548,37 +701,86 @@ export default function PracticePage() {
                                         else if (sec.includes('speaking')) sec = 'speaking';
                                         else if (sec.includes('writing')) sec = 'writing';
 
-                                        if (sectionSums[sec as keyof typeof sectionSums] !== undefined) {
-                                            sectionSums[sec as keyof typeof sectionSums] += (item.score || 0);
-                                            sectionCounts[sec as keyof typeof sectionCounts] += 1;
+                                        const rawScore = item.details?.rawScore;
+                                        const maxScore = item.details?.maxScore;
+                                        const isObjective =
+                                            typeof rawScore === 'number' &&
+                                            typeof maxScore === 'number' &&
+                                            maxScore > 0 &&
+                                            (sec === 'reading' || sec === 'listening' || sec === 'writing');
+
+                                        if (isObjective) {
+                                            (objectiveRaw as any)[sec].correct += rawScore;
+                                            (objectiveRaw as any)[sec].total += maxScore;
+                                        } else if (sec === 'speaking' || sec === 'writing') {
+                                            subjectivePct[sec as 'speaking' | 'writing'].sum += (item.score || 0);
+                                            subjectivePct[sec as 'speaking' | 'writing'].count += 1;
                                         }
                                     });
 
+                                    const readingObjective = bandFromObjectiveRaw('reading', objectiveRaw.reading.correct, objectiveRaw.reading.total);
+                                    const listeningObjective = bandFromObjectiveRaw('listening', objectiveRaw.listening.correct, objectiveRaw.listening.total);
+                                    const writingObjective = bandFromObjectiveRaw('writing', objectiveRaw.writing.correct, objectiveRaw.writing.total);
+
+                                    const writingObjectiveBand = objectiveRaw.writing.total > 0 ? writingObjective.band : null;
+
+                                    const writingRubricBand = subjectivePct.writing.count
+                                        ? bandFromPercent(subjectivePct.writing.sum / subjectivePct.writing.count)
+                                        : null;
+
+                                    const WRITING_OBJECTIVE_WEIGHT = 0.25;
+                                    const WRITING_RUBRIC_WEIGHT = 0.75;
+
+                                    const combinedWritingBand =
+                                        writingObjectiveBand !== null && writingRubricBand !== null
+                                            ? roundToNearestHalf((writingObjectiveBand * WRITING_OBJECTIVE_WEIGHT) + (writingRubricBand * WRITING_RUBRIC_WEIGHT))
+                                            : (writingRubricBand ?? writingObjectiveBand ?? 1);
+
                                     const finalSectionScores = {
-                                        reading: sectionCounts.reading ? Math.round((sectionSums.reading / sectionCounts.reading) / 100 * 30) : 0,
-                                        listening: sectionCounts.listening ? Math.round((sectionSums.listening / sectionCounts.listening) / 100 * 30) : 0,
-                                        speaking: sectionCounts.speaking ? Math.round((sectionSums.speaking / sectionCounts.speaking) / 100 * 30) : 0,
-                                        writing: sectionCounts.writing ? Math.round((sectionSums.writing / sectionCounts.writing) / 100 * 30) : 0,
+                                        reading: objectiveRaw.reading.total > 0 ? readingObjective.band : 1,
+                                        listening: objectiveRaw.listening.total > 0 ? listeningObjective.band : 1,
+                                        speaking: subjectivePct.speaking.count
+                                            ? bandFromPercent(subjectivePct.speaking.sum / subjectivePct.speaking.count)
+                                            : 1,
+                                        writing: combinedWritingBand,
                                     };
 
-                                    // Total Score is sum of section scores (0-120)
-                                    const finalScore =
-                                        finalSectionScores.reading +
-                                        finalSectionScores.listening +
-                                        finalSectionScores.speaking +
-                                        finalSectionScores.writing;
+                                    // Overall score is the average of section band scores (rounded to nearest whole/half band).
+                                    const finalScore = overallBandFromSections(finalSectionScores as any);
+                                    const legacy = concordanceOverall120(finalScore);
 
                                     // 4. Save to Supabase
                                     await saveExamResult({
                                         user_id: user.id,
                                         exam_type: selectedExam as any,
                                         total_score: finalScore,
-                                        max_score: 120,
+                                        max_score: 6,
                                         test_date: new Date().toISOString(),
                                         section_scores: finalSectionScores,
                                         metadata: {
                                             mode: practiceMode,
                                             difficulty: testDifficulty,
+                                            // ETS provides a temporary concordance to the legacy 0–120 scale (Table 3 in the overview).
+                                            legacy_score_0_120_min: legacy.min,
+                                            legacy_score_0_120_label: legacy.label,
+                                            writing_breakdown: {
+                                                objective: {
+                                                    band: writingObjectiveBand,
+                                                    rawCorrect: objectiveRaw.writing.correct,
+                                                    rawTotal: objectiveRaw.writing.total,
+                                                    scaled030: objectiveRaw.writing.total > 0 ? writingObjective.scaled030 : null,
+                                                    weight: WRITING_OBJECTIVE_WEIGHT
+                                                },
+                                                rubric: {
+                                                    band: writingRubricBand,
+                                                    itemCount: subjectivePct.writing.count,
+                                                    weight: WRITING_RUBRIC_WEIGHT
+                                                }
+                                            },
+                                            objective_scaled_030: {
+                                                reading: objectiveRaw.reading.total > 0 ? readingObjective.scaled030 : null,
+                                                listening: objectiveRaw.listening.total > 0 ? listeningObjective.scaled030 : null
+                                            },
                                             detailed_review: gradedAnswers
                                         }
                                     });
@@ -588,8 +790,21 @@ export default function PracticePage() {
                                     // Update state for Review, BUT DO NOT SHOW IT YET
                                     setFinalResults({
                                         totalScore: finalScore,
-                                        maxScore: 120,
+                                        maxScore: 6,
                                         sectionScores: finalSectionScores,
+                                        writingBreakdown: {
+                                            objective: {
+                                                band: writingObjectiveBand,
+                                                rawCorrect: objectiveRaw.writing.correct,
+                                                rawTotal: objectiveRaw.writing.total,
+                                                weight: WRITING_OBJECTIVE_WEIGHT
+                                            },
+                                            rubric: {
+                                                band: writingRubricBand,
+                                                itemCount: subjectivePct.writing.count,
+                                                weight: WRITING_RUBRIC_WEIGHT
+                                            }
+                                        },
                                         gradedItems: hydratedResults // Use hydrated results with originalQuestion
                                     });
                                     // setShowResults(true); // <--- REMOVED: Wait for user to click Review

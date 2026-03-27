@@ -10,7 +10,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "goldset": "node scripts/goldset-check.js",
+    "validate:toefl": "node scripts/validate-toefl-source-data.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

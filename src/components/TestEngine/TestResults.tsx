@@ -29,10 +29,11 @@ interface TestResultsProps {
     maxScore: number;
     sectionScores: { reading: number; listening: number; speaking: number; writing: number };
     gradedItems: GradedItem[];
+    writingBreakdown?: any;
     onClose: () => void;
 }
 
-export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, onClose }: TestResultsProps) {
+export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, writingBreakdown, onClose }: TestResultsProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     if (!gradedItems || gradedItems.length === 0) {
@@ -177,6 +178,13 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                                 {currentItem.section}
                             </span>
                         </div>
+                        {writingBreakdown && (
+                            <div className="mt-3 text-sm text-muted-foreground">
+                                <span className="font-semibold text-foreground">Writing breakdown:</span>{" "}
+                                objective {writingBreakdown.objective?.band ?? "—"} (w={writingBreakdown.objective?.weight ?? "—"}),{" "}
+                                rubric {writingBreakdown.rubric?.band ?? "—"} (w={writingBreakdown.rubric?.weight ?? "—"})
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-6">
                         <div className="text-right hidden sm:block">

@@ -30,9 +30,10 @@ interface TestEngineProps {
     examType?: string; // e.g., 'toefl'
     section?: string; // e.g., 'reading', 'listening', 'speaking'
     onReview?: () => void;
+    generationMode?: 'balanced' | 'fresh' | 'fast';
 }
 
-export function TestEngine({ questions, timeLimit, title, onExit, onComplete, examType, section, onReview }: TestEngineProps) {
+export function TestEngine({ questions, timeLimit, title, onExit, onComplete, examType, section, onReview, generationMode }: TestEngineProps) {
     const {
         currentIndex,
         currentQuestion,
@@ -52,6 +53,7 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
         timeLimit,
         examType,
         section,
+        generationMode,
         onComplete: (results) => {
             console.log("Test Completed", results);
             if (onComplete) onComplete(results);
@@ -69,6 +71,10 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
         const s = seconds % 60;
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
+
+    const isSpeaking = (section || '').toLowerCase() === 'speaking';
+    const warningThreshold = isSpeaking ? 20 : 600;
+    const criticalThreshold = isSpeaking ? 10 : 300;
 
     if (isCompleted) {
         return (
@@ -241,19 +247,19 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
                 <div className="flex items-center space-x-3 text-sm font-variant-numeric tabular-nums">
                     <Clock className={cn(
                         "w-5 h-5",
-                        timeLeft < 300 ? "text-red-500" : timeLeft < 600 ? "text-yellow-500" : "text-muted-foreground"
+                        timeLeft < criticalThreshold ? "text-red-500" : timeLeft < warningThreshold ? "text-yellow-500" : "text-muted-foreground"
                     )} />
                     <span className={cn(
                         "text-lg font-bold",
-                        timeLeft < 300 && "text-red-500 animate-pulse",
-                        timeLeft >= 300 && timeLeft < 600 && "text-yellow-600",
-                        timeLeft >= 600 && "text-foreground"
+                        timeLeft < criticalThreshold && "text-red-500 animate-pulse",
+                        timeLeft >= criticalThreshold && timeLeft < warningThreshold && "text-yellow-600",
+                        timeLeft >= warningThreshold && "text-foreground"
                     )}>
                         {formatTime(timeLeft)}
                     </span>
-                    {timeLeft < 300 && (
+                    {timeLeft < criticalThreshold && (
                         <span className="text-xs text-red-500 font-medium">
-                            {timeLeft < 60 ? "FINAL MINUTE!" : "< 5 MIN"}
+                            {isSpeaking ? "FINAL SECONDS!" : timeLeft < 60 ? "FINAL MINUTE!" : "< 5 MIN"}
                         </span>
                     )}
                 </div>
