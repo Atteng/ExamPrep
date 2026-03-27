@@ -1,0 +1,112 @@
+{
+  "cases": [
+    {
+      "name": "reading_mcq_correct",
+      "submission": {
+        "examType": "toefl",
+        "section": "reading",
+        "taskType": "Read in Daily Life",
+        "question": {
+          "id": "r1",
+          "answerKey": "B",
+          "options": ["A. Wrong", "B. Right", "C. Wrong", "D. Wrong"]
+        },
+        "userAnswer": "B"
+      },
+      "expectedScore": 100
+    },
+    {
+      "name": "reading_mcq_key_letter_user_option_text",
+      "submission": {
+        "examType": "toefl",
+        "section": "reading",
+        "taskType": "Read in Daily Life",
+        "question": {
+          "id": "r1b",
+          "answerKey": "B",
+          "options": ["A. Wrong", "B. Right", "C. Wrong", "D. Wrong"]
+        },
+        "userAnswer": "B. Right"
+      },
+      "expectedScore": 100
+    },
+    {
+      "name": "reading_mcq_letter_vs_optiontext",
+      "submission": {
+        "examType": "toefl",
+        "section": "reading",
+        "taskType": "Read in Daily Life",
+        "question": {
+          "id": "r2",
+          "answerKey": "B. Right",
+          "options": ["A. Wrong", "B. Right", "C. Wrong", "D. Wrong"]
+        },
+        "userAnswer": "B. Right"
+      },
+      "expectedScore": 100
+    },
+    {
+      "name": "listening_set_partial",
+      "submission": {
+        "examType": "toefl",
+        "section": "listening",
+        "taskType": "Listen to a Conversation",
+        "question": {
+          "id": "l1",
+          "questions": [
+            { "prompt": "Q1", "options": ["A. x", "B. y"], "answerKey": "A" },
+            { "prompt": "Q2", "options": ["A. x", "B. y"], "answerKey": "B" }
+          ]
+        },
+        "userAnswer": "{\"0\":\"A\",\"1\":\"A\"}"
+      },
+      "expectedScore": 50
+    },
+    {
+      "name": "listening_set_exact_with_prefixes",
+      "submission": {
+        "examType": "toefl",
+        "section": "listening",
+        "taskType": "Listen to an Academic Talk",
+        "question": {
+          "id": "l2",
+          "questions": [
+            { "prompt": "Q1", "options": ["A. cat", "B. dog", "C. fish", "D. bird"], "answerKey": "B. dog" },
+            { "prompt": "Q2", "options": ["A. one", "B. two", "C. three", "D. four"], "answerKey": "D" }
+          ]
+        },
+        "userAnswer": "{\"0\":\"B. dog\",\"1\":\"D\"}"
+      },
+      "expectedScore": 100
+    },
+    {
+      "name": "complete_words_partial",
+      "submission": {
+        "examType": "toefl",
+        "section": "reading",
+        "taskType": "Complete The Words",
+        "question": {
+          "id": "c1",
+          "answerKey": "(1) ght (2) at (3) ple"
+        },
+        "userAnswer": "ght,xx,ple"
+      },
+      "expectedScore": 67
+    },
+    {
+      "name": "build_sentence_exact",
+      "submission": {
+        "examType": "toefl",
+        "section": "writing",
+        "taskType": "Build a Sentence",
+        "question": {
+          "id": "b1",
+          "answerKey": "The tour guides who showed us around the old city were fantastic.",
+          "structure": { "example": { "target_sentence": "The tour guides who showed us around the old city were fantastic." } }
+        },
+        "userAnswer": "The tour guides who showed us around the old city were fantastic."
+      },
+      "expectedScore": 100
+    }
+  ]
+}
