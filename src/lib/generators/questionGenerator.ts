@@ -62,8 +62,9 @@ function applyClozeMasking(text: string) {
             const halfPoint = Math.ceil(cleanWord.length / 2);
             const visible = cleanWord.slice(0, halfPoint);
             const hidden = cleanWord.slice(halfPoint);
+            const blank = hidden.split("").map(() => "_").join(" ");
 
-            maskedText += ` ${visible}_ _ _${punctuation}`;
+            maskedText += ` ${visible}${blank ? `${blank}` : ""}${punctuation}`;
             answerParts.push(`(${maskedCount + 1}) ${hidden}`);
             maskedCount++;
         } else {

@@ -43,6 +43,7 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
         currentAnswer,
         currentModule,
         isLoadingModule2,
+        pendingSpeakingQuestionId,
         canGoBack,
         submitAnswer,
         nextQuestion,
@@ -285,6 +286,11 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
                     </div>
                 ) : (
                     renderQuestion()
+                )}
+                {pendingSpeakingQuestionId && (
+                    <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                        Saving your recording...
+                    </div>
                 )}
             </div>
 

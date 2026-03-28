@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
         // Determine Module 2 difficulty based on Module 1 performance
         const scorePercentage = module1Score; // Already a percentage (0-100)
-        const isHard = scorePercentage >= 60;
+        const isHard = scorePercentage >= 70;
         const moduleType = isHard ? 'hard' : 'easy';
         const targetLevel = isHard ? 'C1' : 'B1'; // True Adaptive Levels
 
@@ -36,9 +36,9 @@ export async function POST(request: Request) {
             // 1 Complete Words × 10 = 10 items
             // 1 Academic × 5 = 5 items
             const [dailyLife, completeWords, academic] = await Promise.all([
-                generateQuestions(examType, section, 'Read in Daily Life', 4, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Read in Daily Life', 5, excludeTopics, targetLevel, generationMode || 'balanced'),
                 generateQuestions(examType, section, 'Complete The Words', 1, excludeTopics, targetLevel, generationMode || 'balanced'), // Cloze is very sensitive to level
-                generateQuestions(examType, section, 'Read an Academic Passage', 1, excludeTopics, targetLevel, generationMode || 'balanced')
+                generateQuestions(examType, section, 'Read an Academic Passage', 5, excludeTopics, targetLevel, generationMode || 'balanced')
             ]);
 
             questions = [...dailyLife, ...completeWords, ...academic].map(q => ({
@@ -57,13 +57,14 @@ export async function POST(request: Request) {
             // 3 Conversations × 3 = 9 items
             // 2 Announcements × 3 = 6 items
             // 2 Academic Talks × 4 = 8 items
-            const [conversation, announcement, academicTalk] = await Promise.all([
-                generateQuestions(examType, section, 'Listen to a Conversation', 3, excludeTopics, targetLevel, generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Listen to an Announcement', 2, excludeTopics, targetLevel, generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Listen to an Academic Talk', 2, excludeTopics, targetLevel, generationMode || 'balanced')
+            const [choose, conversation, announcement, academicTalk] = await Promise.all([
+                generateQuestions(examType, section, 'Listen and Choose a Response', 5, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to a Conversation', 2, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Announcement', 1, excludeTopics, targetLevel, generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Academic Talk', 1, excludeTopics, targetLevel, generationMode || 'balanced')
             ]);
 
-            questions = [...conversation, ...announcement, ...academicTalk].map(q => ({
+            questions = [...choose, ...conversation, ...announcement, ...academicTalk].map(q => ({
                 ...q,
                 metadata: {
                     ...q.metadata,

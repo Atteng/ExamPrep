@@ -163,7 +163,7 @@ export default function CompleteTheWords({
                         {isListeningSection ? 'Listening & Grammar' : 'Reading & Grammar'}
                     </span>
                     <div className="flex items-center justify-center gap-2">
-                        <h2 className="text-2xl font-bold">Complete the Sentences</h2>
+                        <h2 className="text-2xl font-bold">Complete the Words</h2>
                         {reviewMode && aiFeedback && <AIFeedbackTooltip feedback={aiFeedback} />}
                     </div>
                     <p className="text-sm text-muted-foreground">

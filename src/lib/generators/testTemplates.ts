@@ -17,17 +17,17 @@ export const TEST_TEMPLATES: Record<string, TestTemplate> = {
             reading: [
                 // Updated TOEFL iBT (multistage): 35–48 items total.
                 // Module 2 is generated adaptively after Module 1 in-app, so keep Module 1 around ~20 items.
-                { taskTypes: ["Read an Academic Passage"], count: 10 },
-                { taskTypes: ["Read in Daily Life"], count: 6 },
-                { taskTypes: ["Complete The Words"], count: 2 }
+                { taskTypes: ["Read an Academic Passage"], count: 5 },
+                { taskTypes: ["Read in Daily Life"], count: 5 },
+                { taskTypes: ["Complete The Words"], count: 1 }
             ],
             listening: [
                 // Updated TOEFL iBT (multistage): 35–45 items total.
                 // Module 2 is generated adaptively after Module 1 in-app, so keep Module 1 around ~18–20 items.
                 { taskTypes: ["Listen and Choose a Response"], count: 6 },
-                { taskTypes: ["Listen to a Conversation"], count: 4 },
-                { taskTypes: ["Listen to an Announcement"], count: 3 },
-                { taskTypes: ["Listen to an Academic Talk"], count: 2 }
+                { taskTypes: ["Listen to a Conversation"], count: 2 },
+                { taskTypes: ["Listen to an Announcement"], count: 1 },
+                { taskTypes: ["Listen to an Academic Talk"], count: 1 }
             ],
             speaking: [
                 { taskTypes: ["Listen and Repeat"], count: 7 },
@@ -45,15 +45,15 @@ export const TEST_TEMPLATES: Record<string, TestTemplate> = {
         description: "Standard TOEFL structure (Full Volume) at standard CEFR level (B2).",
         sections: {
             reading: [
-                { taskTypes: ["Read an Academic Passage"], count: 10 },
-                { taskTypes: ["Read in Daily Life"], count: 6 },
-                { taskTypes: ["Complete The Words"], count: 2 }
+                { taskTypes: ["Read an Academic Passage"], count: 5 },
+                { taskTypes: ["Read in Daily Life"], count: 5 },
+                { taskTypes: ["Complete The Words"], count: 1 }
             ],
             listening: [
                 { taskTypes: ["Listen and Choose a Response"], count: 6 },
-                { taskTypes: ["Listen to a Conversation"], count: 4 },
-                { taskTypes: ["Listen to an Announcement"], count: 3 },
-                { taskTypes: ["Listen to an Academic Talk"], count: 2 }
+                { taskTypes: ["Listen to a Conversation"], count: 2 },
+                { taskTypes: ["Listen to an Announcement"], count: 1 },
+                { taskTypes: ["Listen to an Academic Talk"], count: 1 }
             ],
             speaking: [
                 { taskTypes: ["Listen and Repeat"], count: 7 },
@@ -71,15 +71,15 @@ export const TEST_TEMPLATES: Record<string, TestTemplate> = {
         description: "Standard TOEFL structure (Full Volume) at diffcult CEFR level (C1/C2).",
         sections: {
             reading: [
-                { taskTypes: ["Read an Academic Passage"], count: 10 },
-                { taskTypes: ["Read in Daily Life"], count: 6 },
-                { taskTypes: ["Complete The Words"], count: 2 }
+                { taskTypes: ["Read an Academic Passage"], count: 5 },
+                { taskTypes: ["Read in Daily Life"], count: 5 },
+                { taskTypes: ["Complete The Words"], count: 1 }
             ],
             listening: [
                 { taskTypes: ["Listen and Choose a Response"], count: 6 },
-                { taskTypes: ["Listen to a Conversation"], count: 4 },
-                { taskTypes: ["Listen to an Announcement"], count: 3 },
-                { taskTypes: ["Listen to an Academic Talk"], count: 2 }
+                { taskTypes: ["Listen to a Conversation"], count: 2 },
+                { taskTypes: ["Listen to an Announcement"], count: 1 },
+                { taskTypes: ["Listen to an Academic Talk"], count: 1 }
             ],
             speaking: [
                 { taskTypes: ["Listen and Repeat"], count: 7 },

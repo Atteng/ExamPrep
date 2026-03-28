@@ -18,6 +18,14 @@ function normalizeWithOptions(value, options) {
   return normalizeAnswer(v);
 }
 
+function normalizeSentence(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[.,!?;:'"()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Grade TOEFL objective tasks (Reading MCQ, Listening MCQ sets, Writing "Build a Sentence", Reading "Complete The Words").
  *
@@ -35,15 +43,22 @@ function gradeObjectiveSubmission(submission) {
 
   if (!isObjectiveSection) return null;
 
-  // Build a Sentence: exact match for now (practice tool); details carry raw 0/1.
+  // Build a Sentence: compare normalized sentence order while ignoring case/punctuation noise.
   if (taskType === "Build a Sentence" || taskType === "build_sentence") {
     const target = question?.structure?.example?.target_sentence || question?.answerKey || "";
-    const isCorrect = String(userAnswer).trim() === String(target).trim();
+    const cleanUser = normalizeSentence(userAnswer);
+    const cleanTarget = normalizeSentence(target);
+    const isCorrect = cleanUser !== "" && cleanUser === cleanTarget;
     return {
       questionId: question.id,
       score: isCorrect ? 100 : 0,
       feedback: isCorrect ? "Correct!" : `Incorrect. The correct sentence was: "${target}"`,
-      details: { rawScore: isCorrect ? 1 : 0, maxScore: 1 },
+      details: {
+        rawScore: isCorrect ? 1 : 0,
+        maxScore: 1,
+        normalizedUserAnswer: cleanUser,
+        normalizedTargetAnswer: cleanTarget,
+      },
     };
   }
 
@@ -123,4 +138,3 @@ function gradeObjectiveSubmission(submission) {
 module.exports = {
   gradeObjectiveSubmission,
 };
-

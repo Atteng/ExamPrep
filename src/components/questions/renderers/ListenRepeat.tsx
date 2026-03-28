@@ -5,6 +5,7 @@ import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
 import { uploadAudioResponse } from "@/lib/db/storage";
+import { supabase } from "@/lib/supabase";
 import { PlayCircle, Mic, MicOff, Play, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AIFeedbackTooltip } from "@/components/ui/AIFeedbackTooltip";
@@ -37,8 +38,8 @@ export default function ListenRepeat({
     const streamRef = useRef<MediaStream | null>(null);
 
     const sentenceToRepeat = question.text || question.prompt || "No text available";
-    const PREP_DELAY = 1; // 1 second delay after audio (with beep)
-    const RECORDING_TIME = 15; // 15 seconds to repeat
+    const PREP_DELAY = 0; // Practice test says no prep time is provided
+    const RECORDING_TIME = 12; // Overview: 8 to 12 seconds per response
 
     useEffect(() => {
         if (!reviewMode) {
@@ -54,6 +55,12 @@ export default function ListenRepeat({
     const handleStartFlow = () => {
         setFlowState('playing');
         speakText(sentenceToRepeat, () => {
+            if (PREP_DELAY <= 0) {
+                playBeep();
+                setTimeout(() => startRecording(), 200);
+                return;
+            }
+
             setFlowState('waiting');
             setCountdown(PREP_DELAY);
 
@@ -154,8 +161,8 @@ export default function ListenRepeat({
 
     const handleUpload = async (blob: Blob) => {
         setFlowState('complete');
-
-        const url = await uploadAudioResponse(blob, 'anonymous_user', 'toefl');
+        const { data: { user } } = await supabase.auth.getUser();
+        const url = await uploadAudioResponse(blob, user?.id || 'anonymous_user', 'toefl');
 
         if (url) {
             onAnswer(url);

@@ -11,7 +11,7 @@ export function getGeminiModel() {
     // Reconfigure correctly if key exists
     const client = new GoogleGenerativeAI(apiKey);
     return client.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash-lite",
         generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.7,
@@ -40,7 +40,7 @@ export const model = {
 
         const realClient = new GoogleGenerativeAI(apiKey);
         const realModel = realClient.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
+            model: "gemini-2.5-flash-lite",
             generationConfig: {
                 responseMimeType: "application/json",
                 temperature: 0.7,

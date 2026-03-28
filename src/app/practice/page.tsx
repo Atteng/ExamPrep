@@ -8,7 +8,7 @@ import { TestResults } from "@/components/TestEngine/TestResults";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { BookOpen, Headphones, Mic, PenTool, PlayCircle, Loader2 } from "lucide-react";
-import { bandFromPercent, concordanceOverall120, overallBandFromSections, roundToNearestHalf, bandFromObjectiveRaw } from "@/lib/scoring/toefl2026";
+import { concordanceOverall120, overallBandFromSections, roundToNearestHalf, bandFromObjectiveRaw, bandFromRubricAverage } from "@/lib/scoring/toefl2026";
 
 
 
@@ -171,15 +171,17 @@ export default function PracticePage() {
 
     const getToeflSectionTimeLimitSeconds = (sectionId: string) => {
         // From TOEFL iBT Overview New Format (txt extract in extras/TOEFL iBT Overview New Format.txt)
+        // Note: In Full Test mode, these total limits are used.
+        // In Section Drill mode, useTestSession will override with per-task timers where applicable.
         switch (sectionId) {
             case 'reading':
-                return 27 * 60;
+                return 27 * 60; // 35-48 items total
             case 'listening':
-                return 27 * 60;
+                return 27 * 60; // 35-45 items total
             case 'speaking':
-                return 8 * 60;
+                return 8 * 60;  // 11 items total
             case 'writing':
-                return 23 * 60;
+                return 23 * 60; // 12 items total (~6m for Build, 7m for Email, 10m for Discussion)
             default:
                 return 20 * 60;
         }
@@ -218,7 +220,7 @@ export default function PracticePage() {
                                 onChange={(e) => setSelectedExam(e.target.value)}
                                 className="w-full h-10 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             >
-                                <option value="toefl">TOEFL iBT (New)</option>
+                                <option value="toefl">TOEFL iBT</option>
                                 <option value="gre" disabled>GRE General (Coming Soon)</option>
                                 <option value="german" disabled>German B1/B2 (Coming Soon)</option>
                             </select>
@@ -538,6 +540,7 @@ export default function PracticePage() {
                                 }
 
                                 // Individual Task Type Times (proportional estimates)
+                                // If task is per-item timed in useTestSession, these are used as section-level fallbacks
                                 switch (selectedTaskType) {
                                     case 'Read an Academic Passage':
                                         return 5 * 60;  // ~5 mins per passage
@@ -552,9 +555,15 @@ export default function PracticePage() {
                                     case 'Listen to an Academic Talk':
                                         return 4 * 60;  // ~4 mins
                                     case 'Listen and Repeat':
-                                        return 2 * 60;  // ~2 mins (7 sentences)
+                                        return 2 * 60;  // ~2 mins (7 sentences at ~12s each)
                                     case 'Take an Interview':
-                                        return 5 * 60;  // ~5 mins (4 questions × 45s + intro)
+                                        return 5 * 60;  // ~5 mins (4 questions at 45s each)
+                                    case 'Write an Email':
+                                        return 7 * 60;  // 7 mins (Standard)
+                                    case 'Write for an Academic Discussion':
+                                        return 10 * 60; // 10 mins (Standard)
+                                    case 'Build a Sentence':
+                                        return 5 * 60;  // ~5 mins for a set
                                     default:
                                         return 20 * 60; // Default fallback
                                 }
@@ -685,9 +694,9 @@ export default function PracticePage() {
                                         listening: { correct: 0, total: 0 },
                                         writing: { correct: 0, total: 0 }
                                     };
-                                    const subjectivePct = {
-                                        speaking: { sum: 0, count: 0 },
-                                        writing: { sum: 0, count: 0 }
+                                    const subjectiveRubric = {
+                                        speaking: { sum: 0, count: 0, maxScore: 0 },
+                                        writing: { sum: 0, count: 0, maxScore: 0 }
                                     };
 
                                     hydratedResults.forEach((item: any) => {
@@ -712,9 +721,15 @@ export default function PracticePage() {
                                         if (isObjective) {
                                             (objectiveRaw as any)[sec].correct += rawScore;
                                             (objectiveRaw as any)[sec].total += maxScore;
-                                        } else if (sec === 'speaking' || sec === 'writing') {
-                                            subjectivePct[sec as 'speaking' | 'writing'].sum += (item.score || 0);
-                                            subjectivePct[sec as 'speaking' | 'writing'].count += 1;
+                                        } else if (
+                                            (sec === 'speaking' || sec === 'writing') &&
+                                            typeof rawScore === 'number' &&
+                                            typeof maxScore === 'number' &&
+                                            maxScore > 0
+                                        ) {
+                                            subjectiveRubric[sec as 'speaking' | 'writing'].sum += rawScore;
+                                            subjectiveRubric[sec as 'speaking' | 'writing'].count += 1;
+                                            subjectiveRubric[sec as 'speaking' | 'writing'].maxScore = maxScore;
                                         }
                                     });
 
@@ -724,8 +739,11 @@ export default function PracticePage() {
 
                                     const writingObjectiveBand = objectiveRaw.writing.total > 0 ? writingObjective.band : null;
 
-                                    const writingRubricBand = subjectivePct.writing.count
-                                        ? bandFromPercent(subjectivePct.writing.sum / subjectivePct.writing.count)
+                                    const writingRubricBand = subjectiveRubric.writing.count
+                                        ? bandFromRubricAverage(
+                                            subjectiveRubric.writing.maxScore,
+                                            subjectiveRubric.writing.sum / subjectiveRubric.writing.count
+                                        )
                                         : null;
 
                                     const WRITING_OBJECTIVE_WEIGHT = 0.25;
@@ -739,8 +757,11 @@ export default function PracticePage() {
                                     const finalSectionScores = {
                                         reading: objectiveRaw.reading.total > 0 ? readingObjective.band : 1,
                                         listening: objectiveRaw.listening.total > 0 ? listeningObjective.band : 1,
-                                        speaking: subjectivePct.speaking.count
-                                            ? bandFromPercent(subjectivePct.speaking.sum / subjectivePct.speaking.count)
+                                        speaking: subjectiveRubric.speaking.count
+                                            ? bandFromRubricAverage(
+                                                subjectiveRubric.speaking.maxScore,
+                                                subjectiveRubric.speaking.sum / subjectiveRubric.speaking.count
+                                            )
                                             : 1,
                                         writing: combinedWritingBand,
                                     };
@@ -773,7 +794,8 @@ export default function PracticePage() {
                                                 },
                                                 rubric: {
                                                     band: writingRubricBand,
-                                                    itemCount: subjectivePct.writing.count,
+                                                    itemCount: subjectiveRubric.writing.count,
+                                                    rubricMaxScore: subjectiveRubric.writing.maxScore,
                                                     weight: WRITING_RUBRIC_WEIGHT
                                                 }
                                             },
@@ -801,7 +823,8 @@ export default function PracticePage() {
                                             },
                                             rubric: {
                                                 band: writingRubricBand,
-                                                itemCount: subjectivePct.writing.count,
+                                                itemCount: subjectiveRubric.writing.count,
+                                                rubricMaxScore: subjectiveRubric.writing.maxScore,
                                                 weight: WRITING_RUBRIC_WEIGHT
                                             }
                                         },

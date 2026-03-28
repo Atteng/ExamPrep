@@ -12,12 +12,18 @@ export function roundToNearestHalf(value: number): BandScore {
 
 /**
  * Derives a 1–6 band score (0.5 increments) from an average percent (0–100).
- * This is a local approximation for practice; ETS provides official scoring on score reports.
  */
 export function bandFromPercent(averagePercent: number): BandScore {
     const pct = clamp(averagePercent, 0, 100) / 100;
     const raw = 1 + pct * 5;
     return roundToNearestHalf(raw);
+}
+
+export function bandFromRubricAverage(maxRubricScore: number, averageRubricScore: number): BandScore {
+    if (!maxRubricScore || maxRubricScore <= 0) return 1;
+    const normalized = clamp(averageRubricScore, 0, maxRubricScore) / maxRubricScore;
+    const scaled030 = Math.round(normalized * 30);
+    return bandFromScaled030('speaking', scaled030);
 }
 
 type ObjectiveSection = 'reading' | 'listening' | 'writing' | 'speaking';

@@ -5,6 +5,7 @@ import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakText, stopSpeaking } from "@/lib/audio/tts";
 import { uploadAudioResponse } from "@/lib/db/storage";
+import { supabase } from "@/lib/supabase";
 import { Monitor, Mic, MicOff, Play, PlayCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AIFeedbackTooltip } from "@/components/ui/AIFeedbackTooltip";
@@ -37,7 +38,7 @@ export default function TakeInterview({
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const interviewerQuestion = question.text; // The question text
-    const PREP_DELAY = 1; // 1 second after question
+    const PREP_DELAY = 0; // Practice test says no prep time is provided
     const RECORDING_TIME = 45; // 45 seconds to answer
 
     useEffect(() => {
@@ -58,7 +59,12 @@ export default function TakeInterview({
     const handleStartFlow = () => {
         setFlowState('playing');
         speakText(interviewerQuestion || "No question available.", () => {
-            // Question finished, start prep delay
+            if (PREP_DELAY <= 0) {
+                playBeep();
+                setTimeout(() => startRecording(), 200);
+                return;
+            }
+
             setFlowState('waiting');
             setCountdown(PREP_DELAY);
 
@@ -152,7 +158,8 @@ export default function TakeInterview({
 
     const handleUpload = async (blob: Blob) => {
         setFlowState('complete');
-        const url = await uploadAudioResponse(blob, 'anonymous_user', 'toefl');
+        const { data: { user } } = await supabase.auth.getUser();
+        const url = await uploadAudioResponse(blob, user?.id || 'anonymous_user', 'toefl');
         if (url) {
             onAnswer(url);
         } else {

@@ -57,9 +57,9 @@ export async function POST(request: Request) {
 
             // Module 1 routing (multistage): smaller first stage; Module 2 extends adaptively.
             const [academic, daily, words] = await Promise.all([
-                generateQuestions(examType, section, 'Read an Academic Passage', 10, excludeTopics, 'B2', generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Read in Daily Life', 6, excludeTopics, 'B2', generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Complete The Words', 2, excludeTopics, 'B2', generationMode || 'balanced')
+                generateQuestions(examType, section, 'Read an Academic Passage', 5, excludeTopics, 'B2', generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Read in Daily Life', 5, excludeTopics, 'B2', generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Complete The Words', 1, excludeTopics, 'B2', generationMode || 'balanced')
             ]);
 
             // Flatten structure
@@ -86,9 +86,9 @@ export async function POST(request: Request) {
             // Module 1 routing (multistage): smaller first stage; Module 2 extends adaptively.
             const [choose, conversation, announcement, academicTalk] = await Promise.all([
                 generateQuestions(examType, section, 'Listen and Choose a Response', 6, excludeTopics, 'B2', generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Listen to a Conversation', 4, excludeTopics, 'B2', generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Listen to an Announcement', 3, excludeTopics, 'B2', generationMode || 'balanced'),
-                generateQuestions(examType, section, 'Listen to an Academic Talk', 2, excludeTopics, 'B2', generationMode || 'balanced')
+                generateQuestions(examType, section, 'Listen to a Conversation', 2, excludeTopics, 'B2', generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Announcement', 1, excludeTopics, 'B2', generationMode || 'balanced'),
+                generateQuestions(examType, section, 'Listen to an Academic Talk', 1, excludeTopics, 'B2', generationMode || 'balanced')
             ]);
 
             questions = [...choose, ...conversation, ...announcement, ...academicTalk].map(q => ({
