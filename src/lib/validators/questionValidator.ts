@@ -17,7 +17,12 @@ export function validateQuestion(q: QuestionData): ValidationResult {
         errors.push("Prompt is missing or too short");
         score -= 50;
     }
-    if (!q.answerKey) {
+
+    // For passage/set-based tasks (Listening, Reading multi-Q), answers live in the
+    // nested `questions` array rather than at the top level — so we only require a
+    // top-level answerKey when there is no sub-questions array.
+    const hasSubQuestions = Array.isArray(q.questions) && q.questions.length > 0;
+    if (!hasSubQuestions && !q.answerKey) {
         errors.push("Answer key is missing");
         score -= 50;
     }

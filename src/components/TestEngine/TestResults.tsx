@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, XCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CheckCircle, XCircle, ChevronLeft, ChevronRight, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Import all question renderers
@@ -10,7 +10,6 @@ import ListenAcademicTalk from "@/components/questions/renderers/ListenAcademicT
 import CompleteTheWords from "@/components/questions/renderers/CompleteTheWords";
 import ListenRepeat from "@/components/questions/renderers/ListenRepeat";
 import TakeInterview from "@/components/questions/renderers/TakeInterview";
-// TODO: Import other renderers as needed
 
 interface GradedItem {
     questionId: string;
@@ -18,6 +17,7 @@ interface GradedItem {
     taskType: string;
     score: number;
     feedback?: string;
+    improvedVersion?: string; // New field for Writing tasks
     userAnswer: string;
     correctAnswer?: string;
     originalQuestion?: any;
@@ -50,7 +50,6 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
     }
 
     const currentItem = gradedItems[currentIndex];
-    // Determine correctness based on score or feedback analysis
     const isCorrect = currentItem.score >= 80;
 
     const handleNext = () => {
@@ -65,12 +64,10 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
         }
     };
 
-    // Map task type to component
     const renderQuestion = () => {
         const question = currentItem.originalQuestion;
 
         if (!question) {
-            // Fallback if originalQuestion is missing
             return (
                 <div className="p-8 text-center">
                     <p className="text-muted-foreground">Question data not available</p>
@@ -83,18 +80,16 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
         }
 
         const taskType = (currentItem.taskType || question.taskType || "").toLowerCase();
-        console.log("Review Modal - Rendering:", { taskType, originalQ: !!question });
 
         const commonProps = {
             question,
-            onAnswer: () => { }, // No-op in review mode
+            onAnswer: () => { }, 
             reviewMode: true,
             userAnswer: currentItem.userAnswer,
             correctAnswer: currentItem.correctAnswer,
             aiFeedback: currentItem.feedback
         };
 
-        // Match task type to renderer
         if (taskType.includes("choose a response")) {
             return <ListenChooseResponse {...commonProps} />;
         } else if (taskType.includes("conversation")) {
@@ -111,8 +106,6 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
             return <TakeInterview {...commonProps} />;
         }
 
-        // Fallback for other types (Reading, Writing, Speaking interviews etc)
-        // Ideally we should import generic renderers for these too.
         return (
             <div className="p-8 max-w-3xl mx-auto">
                 <div className="bg-muted/30 p-6 rounded-xl border mb-6">
@@ -123,7 +116,6 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                         {taskType}
                     </h3>
                     <p className="text-lg leading-relaxed whitespace-pre-wrap">{question.prompt || question.text || "No prompt available"}</p>
-                    {/* Show text if available (for Reading tasks) */}
                     {question.text && !question.text.startsWith('http') && (
                         <div className="mt-4 p-4 bg-background rounded border text-sm text-muted-foreground">
                             {question.text}
@@ -139,20 +131,37 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                         <p className="font-bold text-sm uppercase mb-2 opacity-70">Your Answer:</p>
                         <p className="font-medium whitespace-pre-wrap">{currentItem.userAnswer}</p>
                     </div>
-                    {!isCorrect && currentItem.correctAnswer && (
+
+                    {currentItem.improvedVersion && (
+                        <div className="p-4 bg-purple-50 border-2 border-purple-500 rounded-lg shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Sparkles className="w-5 h-5 text-purple-600" />
+                                <p className="font-bold text-sm uppercase opacity-70 text-purple-700">TOEFL Standard Rewrite (Band 6):</p>
+                            </div>
+                            <div className="bg-white/70 p-4 rounded border border-purple-200 text-purple-900 leading-relaxed font-serif text-lg whitespace-pre-wrap italic">
+                                "{currentItem.improvedVersion}"
+                            </div>
+                            <p className="mt-3 text-xs text-purple-600 font-medium italic">
+                                Note: This version demonstrates higher-level vocabulary and more sophisticated sentence structures for the same content.
+                            </p>
+                        </div>
+                    )}
+
+                    {!isCorrect && currentItem.correctAnswer && !currentItem.improvedVersion && (
                         <div className="p-4 bg-green-50 border-2 border-green-500 rounded-lg">
                             <p className="font-bold text-sm uppercase mb-2 opacity-70 text-green-700">Correct Answer:</p>
                             <p className="font-medium text-green-800 whitespace-pre-wrap">{currentItem.correctAnswer}</p>
                         </div>
                     )}
+
                     {currentItem.feedback && (
                         <div className="p-4 bg-blue-50 border-2 border-blue-500 rounded-lg flex gap-3">
-                            <div className="mt-1">
+                            <div className="mt-1 flex-shrink-0">
                                 <CheckCircle className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="font-bold text-sm uppercase mb-1 opacity-70 text-blue-700">Based on your answer:</p>
-                                <p className="text-blue-800">{currentItem.feedback}</p>
+                                <p className="font-bold text-sm uppercase mb-1 opacity-70 text-blue-700">Detailed Feedback:</p>
+                                <p className="text-blue-800 leading-relaxed">{currentItem.feedback}</p>
                             </div>
                         </div>
                     )}
@@ -169,7 +178,7 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                 {/* Header */}
                 <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
                     <div>
-                        <h2 className="text-2xl font-bold">Test Review</h2>
+                        <h2 className="text-2xl font-bold">Session Review</h2>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-sm text-muted-foreground">
                                 Question {currentIndex + 1} of {gradedItems.length}
@@ -189,7 +198,7 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                     <div className="flex items-center gap-6">
                         <div className="text-right hidden sm:block">
                             <div className="text-3xl font-bold tracking-tight">{percentage}%</div>
-                            <div className="text-sm text-muted-foreground mr-1">Score</div>
+                            <div className="text-sm text-muted-foreground mr-1">Section Score</div>
                         </div>
                         <button
                             onClick={onClose}
@@ -209,12 +218,12 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                         {isCorrect ? (
                             <>
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <span className="font-bold text-green-700">Correct Answer</span>
+                                <span className="font-bold text-green-700">Satisfactory Performance</span>
                             </>
                         ) : (
                             <>
                                 <XCircle className="w-5 h-5 text-red-600" />
-                                <span className="font-bold text-red-700">Incorrect Answer</span>
+                                <span className="font-bold text-red-700">Needs Improvement</span>
                             </>
                         )}
                     </div>
@@ -261,11 +270,11 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
                         className={cn(
                             "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium shadow-md transition-all active:scale-95",
                             currentIndex === gradedItems.length - 1
-                                ? "bg-zinc-800 text-white hover:bg-zinc-700" // Finish Button
-                                : "bg-primary text-primary-foreground hover:bg-primary/90" // Next Button
+                                ? "bg-zinc-800 text-white hover:bg-zinc-700" 
+                                : "bg-primary text-primary-foreground hover:bg-primary/90" 
                         )}
                     >
-                        {currentIndex === gradedItems.length - 1 ? "Finish" : "Next"}
+                        {currentIndex === gradedItems.length - 1 ? "Finish Review" : "Next Question"}
                         {currentIndex < gradedItems.length - 1 && <ChevronRight className="w-5 h-5" />}
                     </button>
                 </div>

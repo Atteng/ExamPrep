@@ -63,7 +63,8 @@ async function gradeSingleItem(submission: any) {
           "maxScore": number (max value of ${rubric.scale}),
           "feedback": "string",
           "strength": "string",
-          "weakness": "string"
+          "weakness": "string",
+          "improvedVersion": "string (ONLY for Writing tasks: provide a Band 6 / High-Leveled version of the student's response using advanced vocabulary and varied syntax. Keep it empty for Speaking/Objective tasks.)"
         }
         `;
 
@@ -114,6 +115,7 @@ async function gradeSingleItem(submission: any) {
             questionId: question.id,
             score: (evaluation.score / evaluation.maxScore) * 100, // Normalized percentage
             feedback: evaluation.feedback,
+            improvedVersion: evaluation.improvedVersion || null,
             details: evaluation
         };
 

@@ -48,32 +48,59 @@ function getSourceData(taskType: string) {
 }
 
 // Helper: Cloze Masking for 'Complete The Words'
-function applyClozeMasking(text: string) {
-    const words = text.split(/\s+/);
-    let maskedText = "";
-    let answerParts: string[] = [];
-    let maskedCount = 0;
+// Implements TOEFL New Format spec:
+//   - First sentence is ALWAYS left intact
+//   - Starting from sentence 2: delete second half of every 2nd word (min 4 chars)
+//   - Visible portion = Math.floor(length / 2) characters
+//   - Blanks are tight underscores: e.g. "mi___" (one _ per missing letter, no spaces)
+//   - Hard cap of exactly 10 deletions
+const MAX_CLOZE_DELETIONS = 10;
 
-    words.forEach((word, index) => {
-        // Mask every 2nd word that is long enough (Hybrid V1 Logic)
-        if ((index + 1) % 2 === 0 && word.length > 3) {
-            const cleanWord = word.replace(/[.,!?;:'"]/g, '');
-            const punctuation = word.slice(cleanWord.length);
-            const halfPoint = Math.ceil(cleanWord.length / 2);
+function applyClozeMasking(text: string) {
+    // Split into sentences to protect the first sentence
+    const firstSentenceEnd = text.search(/[.!?]\s/);
+    const firstSentence = firstSentenceEnd !== -1 ? text.slice(0, firstSentenceEnd + 1) : '';
+    const remaining = firstSentenceEnd !== -1 ? text.slice(firstSentenceEnd + 1).trim() : text;
+
+    // Tokenise: split by whitespace but keep the whitespace tokens for faithful reconstruction
+    const tokens = remaining.split(/(\s+)/);
+
+    const maskedTokens: string[] = [];
+    const answerParts: string[] = [];
+    let maskedCount = 0;
+    let wordCount = 0;
+
+    for (const token of tokens) {
+        // Whitespace or empty — pass through unchanged
+        if (/^\s*$/.test(token)) {
+            maskedTokens.push(token);
+            continue;
+        }
+
+        wordCount++;
+        const isTargetWord = wordCount % 2 === 0; // every 2nd word
+
+        // Separate trailing punctuation from the word itself
+        const match = token.match(/^([a-zA-Z']+)([.,!?;:"]*)$/);
+        const cleanWord = match?.[1] ?? token;
+        const punctuation = match?.[2] ?? '';
+
+        if (isTargetWord && maskedCount < MAX_CLOZE_DELETIONS && cleanWord.length >= 4) {
+            const halfPoint = Math.floor(cleanWord.length / 2); // spec: show first floor(n/2) chars
             const visible = cleanWord.slice(0, halfPoint);
             const hidden = cleanWord.slice(halfPoint);
-            const blank = hidden.split("").map(() => "_").join(" ");
+            const blanks = '_'.repeat(hidden.length); // tight, no spaces
 
-            maskedText += ` ${visible}${blank ? `${blank}` : ""}${punctuation}`;
+            maskedTokens.push(`${visible}${blanks}${punctuation}`);
             answerParts.push(`(${maskedCount + 1}) ${hidden}`);
             maskedCount++;
         } else {
-            maskedText += ` ${word}`;
+            maskedTokens.push(token);
         }
-    });
+    }
 
     return {
-        maskedText: maskedText.trim(),
+        maskedText: (firstSentence + ' ' + maskedTokens.join('')).trim(),
         answerKey: answerParts.join(' '),
     };
 }
@@ -248,10 +275,18 @@ export async function generateQuestions(
     // STRATEGY A: HYBRID (Complete The Words)
     if (taskType === 'complete_words' || taskType === 'Complete The Words') {
         const { text, source } = await fetchOrGenerateContent(
-            'reading_passage_short',
+            'reading_passage_cloze',
             topic,
             level,
-            `Write a single academic paragraph about ${topic}. Requirements: CEFR Level ${level}, Length 80 words. Tone: Educational. Output: Just raw text.`,
+            `Write an academic paragraph about ${topic} for an English proficiency test.
+Requirements:
+- CEFR Level ${level}
+- Length: 70 to 100 words (strict)
+- Must be at least 3 sentences long
+- The FIRST sentence must be a complete, fully grammatical opening sentence that introduces the topic
+- Remaining sentences should flow naturally and use academic vocabulary
+- Do NOT use headers, bullet points, or lists
+- Output ONLY the raw paragraph text, nothing else`,
             generationMode
         );
 
@@ -496,7 +531,12 @@ export async function generateQuestions(
                 });
 
                 for (const q of mapped) {
-                    if (validateQuestion(q).valid) validNew.push(q);
+                    const vr = validateQuestion(q);
+                    if (vr.valid) {
+                        validNew.push(q);
+                    } else {
+                        console.warn(`⚠️ [Listen & Choose] Rejected question (score ${vr.score}):`, vr.errors.join('; '));
+                    }
                 }
             }
 
@@ -580,7 +620,12 @@ export async function generateQuestions(
                 });
 
                 for (const q of mapped) {
-                    if (validateQuestion(q).valid) validNew.push(q);
+                    const vr = validateQuestion(q);
+                    if (vr.valid) {
+                        validNew.push(q);
+                    } else {
+                        console.warn(`⚠️ [Listening Set] Rejected question (score ${vr.score}):`, vr.errors.join('; '));
+                    }
                 }
             }
 
@@ -683,8 +728,9 @@ export async function generateQuestions(
         await saveGeneratedQuestions(dbPayload);
     }
 
-    // Check if we have enough total
-    const total = [...existingQuestions, ...newQuestions].map(q => ({
+    // Check if we have enough total — use validatedCached (not raw existingQuestions)
+    // to avoid returning malformed or topic-excluded items.
+    const total = [...validatedCached, ...newQuestions].map(q => ({
         ...q,
         metadata: {
             ...q.metadata,
@@ -692,7 +738,7 @@ export async function generateQuestions(
         }
     }));
     if (total.length === 0) {
-        throw new Error("Failed to generate or retrieve any questions.");
+        throw new Error(`Failed to generate or retrieve any questions for taskType="${taskType}" section="${section}" examType="${examType}".`);
     }
 
     return total;

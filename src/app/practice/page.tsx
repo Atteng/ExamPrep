@@ -170,18 +170,19 @@ export default function PracticePage() {
     };
 
     const getToeflSectionTimeLimitSeconds = (sectionId: string) => {
-        // From TOEFL iBT Overview New Format (txt extract in extras/TOEFL iBT Overview New Format.txt)
-        // Note: In Full Test mode, these total limits are used.
-        // In Section Drill mode, useTestSession will override with per-task timers where applicable.
+        // Official TOEFL iBT New Format section times (2026 spec)
+        // Speaking & Writing use per-item timers inside useTestSession; this acts as the outer cap.
         switch (sectionId) {
             case 'reading':
-                return 27 * 60; // 35-48 items total
+                return 27 * 60;  // spec: ~27 min, 35-48 items
             case 'listening':
-                return 27 * 60; // 35-45 items total
+                return 27 * 60;  // spec: ~27 min, 35-45 items
             case 'speaking':
-                return 8 * 60;  // 11 items total
+                return 8 * 60;   // spec: ~8 min, 11 items (7×Repeat@12s + 4×Interview@45s)
             case 'writing':
-                return 23 * 60; // 12 items total (~6m for Build, 7m for Email, 10m for Discussion)
+                // spec: ~29 min total (10×Build@~60s=10m + Email@7m + Discussion@10m)
+                // Per-item timers in useTestSession enforce individual limits.
+                return 29 * 60;
             default:
                 return 20 * 60;
         }
@@ -539,33 +540,44 @@ export default function PracticePage() {
                                     }
                                 }
 
-                                // Individual Task Type Times (proportional estimates)
-                                // If task is per-item timed in useTestSession, these are used as section-level fallbacks
+                                // Per-task drill section-level fallback timers.
+                                // Note: Speaking & Writing per-item limits are enforced inside
+                                // useTestSession.getTaskTimeLimit — these are the session-wide caps.
                                 switch (selectedTaskType) {
+                                    // ── Reading
                                     case 'Read an Academic Passage':
-                                        return 5 * 60;  // ~5 mins per passage
+                                        // spec: ~200-word passages, 5 questions each
+                                        return 5 * 60;    // 5 min per passage (5 questions × ~1 min)
                                     case 'Read in Daily Life':
-                                        return 3 * 60;  // ~3 mins per text
+                                        return 3 * 60;    // 3 min per text (15-150 words, 2-3 questions)
                                     case 'Complete The Words':
-                                        return 3 * 60;  // ~3 mins per passage
+                                        return 4 * 60;    // 4 min (10-blank cloze passage)
+                                    // ── Listening
                                     case 'Listen to a Conversation':
-                                        return 3 * 60;  // ~3 mins (audio + questions)
+                                        return 4 * 60;    // 4 min (audio ~45-60s + 2 questions)
                                     case 'Listen to an Announcement':
-                                        return 3 * 60;  // ~3 mins
+                                        return 3 * 60;    // 3 min (audio ~30s + questions)
                                     case 'Listen to an Academic Talk':
-                                        return 4 * 60;  // ~4 mins
+                                        return 5 * 60;    // 5 min (audio ~90-120s + questions)
+                                    case 'Listen and Choose a Response':
+                                        return 2 * 60;    // 2 min (6 quick items)
+                                    // ── Speaking (per-item timers in useTestSession override)
                                     case 'Listen and Repeat':
-                                        return 2 * 60;  // ~2 mins (7 sentences at ~12s each)
+                                        // 7 sentences × 12s = 84s; add buffer for audio playback
+                                        return 3 * 60;    // 3 min outer cap for a full repeat set
                                     case 'Take an Interview':
-                                        return 5 * 60;  // ~5 mins (4 questions at 45s each)
+                                        // 4 questions × 45s = 180s
+                                        return 4 * 60;    // 4 min outer cap
+                                    // ── Writing (per-item timers in useTestSession override)
                                     case 'Write an Email':
-                                        return 7 * 60;  // 7 mins (Standard)
+                                        return 7 * 60;    // spec: 7 minutes
                                     case 'Write for an Academic Discussion':
-                                        return 10 * 60; // 10 mins (Standard)
+                                        return 10 * 60;   // spec: 10 minutes
                                     case 'Build a Sentence':
-                                        return 5 * 60;  // ~5 mins for a set
+                                        // 5 sentences in a drill × ~60s each
+                                        return 5 * 60;    // 5 min outer cap
                                     default:
-                                        return 20 * 60; // Default fallback
+                                        return 20 * 60;   // safe fallback
                                 }
                             })()}
                             title={practiceMode === 'full'
