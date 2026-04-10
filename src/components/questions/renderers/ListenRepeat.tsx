@@ -30,6 +30,7 @@ export default function ListenRepeat({
     aiFeedback = ""
 }: ListenRepeatProps) {
     const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'review' : 'initial');
+    const isPlayingRef = useRef(false);
     const [countdown, setCountdown] = useState(0);
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
@@ -42,17 +43,20 @@ export default function ListenRepeat({
     const RECORDING_TIME = 12; // Overview: 8 to 12 seconds per response
 
     useEffect(() => {
-        if (!reviewMode) {
+        if (!reviewMode && !isPlayingRef.current) {
             handleStartFlow();
         }
 
         return () => {
             stopSpeaking();
+            isPlayingRef.current = false;
             stopRecording();
         };
     }, [question.id, reviewMode]);
 
     const handleStartFlow = () => {
+        if (isPlayingRef.current) return;
+        isPlayingRef.current = true;
         setFlowState('playing');
         speakText(sentenceToRepeat, () => {
             if (PREP_DELAY <= 0) {

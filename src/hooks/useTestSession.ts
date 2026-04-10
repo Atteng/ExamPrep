@@ -202,7 +202,11 @@ export function useTestSession({
 
         setPendingSpeakingQuestionId(null);
         setCurrentIndex((idx) => {
-            if (idx < questions.length - 1) return idx + 1;
+            if (idx < questions.length - 1) {
+                // Resume the timer for the next question
+                setIsActive(true);
+                return idx + 1;
+            }
             setIsCompleted(true);
             setIsActive(false);
             onComplete(answers);

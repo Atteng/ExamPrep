@@ -285,7 +285,9 @@ export function TestEngine({ questions, timeLimit, title, onExit, onComplete, ex
                         </div>
                     </div>
                 ) : (
-                    renderQuestion()
+                    <div key={currentQuestion.id} className="h-full w-full">
+                        {renderQuestion()}
+                    </div>
                 )}
                 {pendingSpeakingQuestionId && (
                     <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">

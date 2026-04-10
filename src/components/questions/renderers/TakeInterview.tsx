@@ -29,6 +29,7 @@ export default function TakeInterview({
     aiFeedback = ""
 }: TakeInterviewProps) {
     const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'review' : 'initial');
+    const isPlayingRef = useRef(false);
     const [countdown, setCountdown] = useState(0);
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
@@ -43,12 +44,13 @@ export default function TakeInterview({
 
     useEffect(() => {
         // Auto-start flow on mount only if not reviewing
-        if (!reviewMode) {
+        if (!reviewMode && !isPlayingRef.current) {
             handleStartFlow();
         }
 
         return () => {
             stopSpeaking();
+            isPlayingRef.current = false;
             stopRecording();
             if (countdownIntervalRef.current) {
                 clearInterval(countdownIntervalRef.current);
@@ -57,6 +59,8 @@ export default function TakeInterview({
     }, [question.id, reviewMode]);
 
     const handleStartFlow = () => {
+        if (isPlayingRef.current) return;
+        isPlayingRef.current = true;
         setFlowState('playing');
         speakText(interviewerQuestion || "No question available.", () => {
             if (PREP_DELAY <= 0) {

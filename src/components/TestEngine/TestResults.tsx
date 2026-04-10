@@ -231,7 +231,9 @@ export function TestResults({ totalScore, maxScore, sectionScores, gradedItems, 
 
                 {/* Question Content - Scrollable */}
                 <div className="flex-1 overflow-y-auto bg-muted/5 p-4 md:p-8">
-                    {renderQuestion()}
+                    <div key={currentItem.questionId} className="h-full w-full">
+                        {renderQuestion()}
+                    </div>
                 </div>
 
                 {/* Navigation Footer */}

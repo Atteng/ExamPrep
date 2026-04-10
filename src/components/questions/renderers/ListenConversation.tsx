@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { QuestionData } from "@/types/question";
 import { QuestionContainer } from "../QuestionContainer";
 import { speakConversation, stopSpeaking } from "@/lib/audio/tts";
@@ -30,6 +30,7 @@ export default function ListenConversation({
     const [flowState, setFlowState] = useState<FlowState>(reviewMode ? 'questions' : 'initial');
     const [answers, setAnswers] = useState<{ [key: number]: string }>({});
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const isPlayingRef = useRef(false);
 
     const cleanAudioText = (text: string) => {
         if (!text) return "";
@@ -67,20 +68,24 @@ export default function ListenConversation({
     }, [reviewMode, userAnswer]);
 
     useEffect(() => {
-        if (!reviewMode) {
+        if (!reviewMode && !isPlayingRef.current) {
             handlePlayAudio();
         }
         return () => {
             stopSpeaking();
+            isPlayingRef.current = false;
         };
     }, [question.id, reviewMode]);
 
     const handlePlayAudio = () => {
         // TOEFL Listening: audio plays once in test mode (replay allowed in review mode only)
         if (!reviewMode && flowState !== 'initial') return;
+        if (isPlayingRef.current) return;
+        isPlayingRef.current = true;
         setFlowState('playing');
         speakConversation(conversationTranscript, () => {
             setFlowState('questions');
+            isPlayingRef.current = false;
         });
     };
 
