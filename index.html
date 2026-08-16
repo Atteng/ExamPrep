@@ -1288,33 +1288,69 @@
     reader.onload = function(evt) {
       var csvText = evt.target.result;
 
-      setTimeout(function() {
-        document.getElementById('step-1').classList.remove('active');
-        document.getElementById('step-1').classList.add('done');
-        document.getElementById('step-2').classList.add('active');
-        document.getElementById('progress-bar-fill').style.width = '55%';
-        updateTaskState(fileName, 55, 'Step 2: Cleaning domains & budgets');
+      // Send to Python Serverless API Endpoint (/api/triage)
+      fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: csvText
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.status === 'success' && data.leads) {
+          window.CUSTOM_DATASETS = window.CUSTOM_DATASETS || {};
+          window.CUSTOM_DATASETS[fileName] = data.leads;
 
-        setTimeout(function() {
-          document.getElementById('step-2').classList.remove('active');
+          var menu = document.getElementById('custom-dropdown-menu');
+          var divider = menu.querySelector('.custom-dropdown-divider');
+          var item = document.createElement('div');
+          item.className = 'custom-dropdown-item';
+          item.onclick = function() { selectDatasetOption(fileName, fileName + ' (' + data.leads.length + ' leads)', this); };
+          item.innerHTML = '<span>' + fileName + '</span> <span class="item-badge">' + data.leads.length + ' leads</span>';
+          menu.insertBefore(item, divider);
+
+          document.getElementById('step-1').classList.add('done');
           document.getElementById('step-2').classList.add('done');
-          document.getElementById('step-3').classList.add('active');
-          document.getElementById('progress-bar-fill').style.width = '85%';
-          updateTaskState(fileName, 85, 'Step 3: Scoring authority & intent');
+          document.getElementById('step-3').classList.add('done');
+          document.getElementById('step-4').classList.add('done');
+          document.getElementById('progress-bar-fill').style.width = '100%';
+          document.getElementById('btn-view-results').style.display = 'inline-flex';
+
+          selectDatasetOption(fileName, fileName + ' (' + data.leads.length + ' leads)', item);
+          updateTaskState(fileName, 100, 'Complete (Python Engine)', true);
+          return;
+        }
+        throw new Error('API Fallback');
+      })
+      .catch(function() {
+        // Graceful fallback to client-side triage engine if backend endpoint offline
+        setTimeout(function() {
+          document.getElementById('step-1').classList.remove('active');
+          document.getElementById('step-1').classList.add('done');
+          document.getElementById('step-2').classList.add('active');
+          document.getElementById('progress-bar-fill').style.width = '55%';
+          updateTaskState(fileName, 55, 'Step 2: Cleaning domains & budgets');
 
           setTimeout(function() {
-            parseAndScoreCSV(csvText, fileName);
+            document.getElementById('step-2').classList.remove('active');
+            document.getElementById('step-2').classList.add('done');
+            document.getElementById('step-3').classList.add('active');
+            document.getElementById('progress-bar-fill').style.width = '85%';
+            updateTaskState(fileName, 85, 'Step 3: Scoring authority & intent');
 
-            document.getElementById('step-3').classList.remove('active');
-            document.getElementById('step-3').classList.add('done');
-            document.getElementById('step-4').classList.add('done');
-            document.getElementById('progress-bar-fill').style.width = '100%';
-            document.getElementById('btn-view-results').style.display = 'inline-flex';
+            setTimeout(function() {
+              parseAndScoreCSV(csvText, fileName);
 
-            updateTaskState(fileName, 100, 'Complete', true);
+              document.getElementById('step-3').classList.remove('active');
+              document.getElementById('step-3').classList.add('done');
+              document.getElementById('step-4').classList.add('done');
+              document.getElementById('progress-bar-fill').style.width = '100%';
+              document.getElementById('btn-view-results').style.display = 'inline-flex';
+
+              updateTaskState(fileName, 100, 'Complete', true);
+            }, 600);
           }, 600);
-        }, 600);
-      }, 500);
+        }, 500);
+      });
     };
     reader.readAsText(selectedImportFile);
   }
