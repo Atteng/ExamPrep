@@ -1,5 +1,5 @@
 {
-  "outputDirectory": ".",
+  "framework": null,
   "cleanUrls": true,
   "rewrites": [
     { "source": "/api/triage", "destination": "/api/triage.py" }
