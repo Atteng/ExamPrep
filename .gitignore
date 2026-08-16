@@ -1,12 +1,11 @@
 # Git ignore rules for Kora Leads deployment
 *.csv
-*.json
 *.jpg
 *.png
 *.txt
-*.py
 *.tmp
 *.log
 __pycache__/
 .DS_Store
 Thumbs.db
+build_script.py
