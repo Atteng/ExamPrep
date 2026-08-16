@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Simple lead triage dashboard for sales reps. Prioritize inbound leads easily with automated ratings and recommendations.">
+  <title>Lead Manager — Sales Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --yellow: #FFD600;
+      --dark: #1C1C1C;
+      --light: #EAEAEA;
+      --surface: #F5F5F5;
+      --white: #FFFFFF;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--light);
+      color: #111;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    /* ─── SIDEBAR ─────────────────────────────── */
+    #sidebar {
+      width: 220px;
+      background-color: var(--yellow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 16px 20px 16px;
+      position: relative;
+      transition: margin-left 0.3s ease;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    #sidebar.collapsed { margin-left: -220px; }
+
+    #toggle-btn {
+      position: absolute;
+      right: -28px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 54px;
+      background-color: var(--yellow);
+      border-radius: 0 14px 14px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 3px 0 10px rgba(0,0,0,0.15);
+      transition: filter 0.15s ease;
+    }
+    #toggle-btn:hover { filter: brightness(1.05); }
+
+    .brand-header {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #000;
+      margin-bottom: 30px;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: rgba(0,0,0,0.7);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .nav-item:hover { background: rgba(0,0,0,0.06); color: #000; }
+    .nav-item.active {
+      background-color: var(--white);
+      color: #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .nav-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+    }
+
+    .btn-import {
+      background-color: var(--dark);
+      color: var(--white);
+      border: none;
+      border-radius: 14px;
+      padding: 12px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      transition: transform 0.15s ease, background 0.2s;
+    }
+    .btn-import:hover { background: #333; transform: translateY(-1px); }
+
+    /* Sleek Custom Scrollbar at Window Edge */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #C4C4C4; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A0A0A0; }
+
+    /* ─── MAIN CONTENT ────────────────────────── */
+    #main-content {
+      flex: 1;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: 100%;
+    }
+
+    .content-wrapper {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 36px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .view-section { display: none; flex-direction: column; gap: 20px; }
+    .view-section.active { display: flex; }
+
+    .page-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .page-header { display: flex; flex-direction: column; gap: 2px; }
+    .sub-tag { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1.2px; }
+    .page-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-badge {
+      width: 22px;
+      height: 22px;
+      background-color: var(--yellow);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .btn-header-import {
+      background-color: var(--dark);
+      color: var(--white);
+      border: none;
+      border-radius: 24px;
+      padding: 10px 22px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      transition: transform 0.15s ease, background-color 0.2s ease;
+    }
+    .btn-header-import:hover {
+      background-color: #333333;
+      transform: translateY(-1px);
+    }
+
+    /* ─── 5-COLUMN METRICS GRID ────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .metric-card {
+      background-color: var(--dark);
+      border-radius: 18px;
+      padding: 16px 18px;
+      color: var(--white);
+      position: relative;
+      height: 145px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-2px); }
+
+    .metric-title { font-size: 10.5px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.6px; }
+    .metric-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--yellow);
+      line-height: 1;
+    }
+    .metric-sub { font-size: 10.5px; font-weight: 600; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .btn-view {
+      background-color: var(--yellow);
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      padding: 5px 12px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 11.5px;
+      cursor: pointer;
+      width: fit-content;
+      transition: transform 0.15s ease;
+    }
+    .btn-view:hover { transform: translateX(2px); }
+
+    .progress-bar-vertical {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      width: 6px;
+      height: 110px;
+      background-color: #2e2e2e;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1px;
+    }
+    .progress-fill {
+      width: 100%;
+      background: linear-gradient(to top, var(--yellow), #FFE566);
+      border-radius: 3px;
+      transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ─── INSIGHTS ROW ────────────────────────── */
+    .insights-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-card, .status-card {
+      background-color: var(--surface);
+      border-radius: 20px;
+      padding: 20px 24px;
+    }
+
+    .card-header-flex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-heading { font-size: 15px; font-weight: 700; }
+
+    .btn-dark-pill {
+      background-color: var(--dark);
+      color: var(--white);
+      border: none;
+      border-radius: 16px;
+      padding: 6px 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-dark-pill:hover { background: #333; }
+
+    /* Bar chart */
+    .bars-container {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      height: 160px;
+      border-bottom: 1.5px solid #DCDCDC;
+      padding-bottom: 8px;
+    }
+    .bar-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      cursor: pointer;
+    }
+    .bar-pillar {
+      width: 22px;
+      background: linear-gradient(to top, var(--yellow), #FFE566);
+      border-radius: 8px;
+      transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease, box-shadow 0.2s ease;
+    }
+    .bar-group:hover .bar-pillar {
+      filter: brightness(1.15);
+      box-shadow: 0 4px 14px rgba(255, 214, 0, 0.45);
+    }
+
+    /* Custom Floating Hover Tooltip */
+    .bar-tooltip {
+      position: absolute;
+      top: -36px;
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background-color: var(--dark);
+      border: 1px solid var(--yellow);
+      color: var(--white);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 20;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    }
+    .bar-tooltip span {
+      color: var(--yellow);
+      font-weight: 800;
+    }
+    .bar-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 5px 5px 0;
+      border-style: solid;
+      border-color: var(--yellow) transparent;
+      display: block;
+      width: 0;
+    }
+    .bar-group:hover .bar-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .bar-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #666;
+      text-align: center;
+      max-width: 90px;
+      line-height: 1.25;
+      white-space: normal;
+      word-wrap: break-word;
+    }
+
+    /* Status card */
+    .status-card { display: flex; flex-direction: column; justify-content: space-between; }
+    .big-count {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      line-height: 1;
+      margin: 6px 0 12px;
+    }
+    .legend-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-yellow { background-color: var(--yellow); }
+    .dot-red { background-color: #FF4D4D; }
+    .dot-gray { background-color: #AAA; }
+
+    /* ─── PIPELINES CONTROLS ───────────────────── */
+    .controls-row { display: flex; align-items: center; gap: 14px; }
+
+    .search-pill {
+      height: 38px;
+      background-color: var(--dark);
+      color: var(--white);
+      border-radius: 20px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: 260px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .search-pill svg { stroke: #999; flex-shrink: 0; }
+    .search-pill input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--white);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+      width: 100%;
+    }
+    .search-pill input::placeholder { color: #777; }
+
+    /* Custom Styled Dataset Dropdown */
+    .custom-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .custom-dropdown-trigger {
+      height: 38px;
+      background-color: var(--dark);
+      color: var(--white);
+      border-radius: 20px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: background-color 0.15s ease;
+      user-select: none;
+    }
+    .custom-dropdown-trigger:hover {
+      background-color: #2c2c2c;
+    }
+    .custom-dropdown-trigger svg { stroke: #999; flex-shrink: 0; }
+    .dropdown-chevron {
+      transition: transform 0.2s ease;
+      margin-left: 4px;
+    }
+    .custom-dropdown.open .dropdown-chevron {
+      transform: rotate(180deg);
+    }
+
+    .custom-dropdown-menu {
+      position: absolute;
+      top: 44px;
+      left: 0;
+      width: 280px;
+      background-color: var(--dark);
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 150;
+    }
+    .custom-dropdown.open .custom-dropdown-menu {
+      display: flex;
+    }
+
+    .custom-dropdown-item {
+      padding: 9px 12px;
+      border-radius: 10px;
+      color: #DDD;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .custom-dropdown-item:hover {
+      background-color: #333;
+      color: var(--white);
+    }
+    .custom-dropdown-item.active {
+      background-color: var(--yellow);
+      color: #000;
+      font-weight: 800;
+    }
+    .custom-dropdown-item.active .item-badge {
+      background-color: #000;
+      color: var(--yellow);
+    }
+    .item-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      background-color: #333;
+      color: #AAA;
+      padding: 2px 7px;
+      border-radius: 8px;
+    }
+    .custom-dropdown-divider {
+      height: 1px;
+      background-color: #333;
+      margin: 4px 0;
+    }
+    .import-item {
+      color: var(--yellow);
+      gap: 8px;
+      justify-content: flex-start;
+    }
+    .import-item:hover {
+      background-color: rgba(255,214,0,0.15);
+      color: var(--yellow);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 22px;
+      border-bottom: 2px solid #D0D0D0;
+      padding-bottom: 8px;
+    }
+    .tab-item {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #888;
+      cursor: pointer;
+      position: relative;
+      padding-bottom: 8px;
+      transition: color 0.2s;
+    }
+    .tab-item:hover { color: #333; }
+    .tab-item.active { color: #000; }
+    .tab-item.active::after {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--yellow);
+      border-radius: 2px;
+    }
+
+    .table-container {
+      background-color: var(--surface);
+      border-radius: 18px;
+      overflow: hidden;
+      flex: 1;
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    thead { background-color: #D4D4D4; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+    th, td { padding: 10px 16px; }
+    tbody tr { border-bottom: 1px solid #E4E4E4; cursor: pointer; transition: background 0.15s; }
+    tbody tr:hover { background-color: var(--white); }
+
+    .badge-rec {
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 800;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-contact { background-color: #D4EDDA; color: #155724; }
+    .badge-nurture { background-color: #FFF3CD; color: #856404; }
+    .badge-disqualify { background-color: #F8D7DA; color: #721C24; }
+
+    .score-bar-bg {
+      background: #E0E0E0;
+      border-radius: 3px;
+      height: 5px;
+      width: 60px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .score-bar-fill {
+      background: var(--yellow);
+      border-radius: 3px;
+      height: 100%;
+    }
+
+    /* ─── DRAWER ───────────────────────────────── */
+    #drawer-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      display: none;
+      backdrop-filter: blur(2px);
+    }
+    #drawer {
+      position: fixed;
+      top: 0; right: -420px;
+      width: 420px; height: 100vh;
+      background: var(--white);
+      z-index: 201;
+      transition: right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    #drawer.open { right: 0; }
+
+    .drawer-header {
+      padding: 24px 28px 18px;
+      border-bottom: 1px solid #E8E8E8;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .drawer-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 19px;
+      font-weight: 800;
+    }
+    .drawer-close {
+      background: var(--dark);
+      color: var(--white);
+      border: none;
+      border-radius: 50%;
+      width: 30px; height: 30px;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .drawer-body { padding: 22px 28px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+    .drawer-field label { font-size: 10px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 3px; }
+    .drawer-field p { font-size: 13.5px; font-weight: 600; color: #111; }
+    .drawer-notes {
+      background: #F8F8F8;
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .drawer-notes p { font-size: 13px; line-height: 1.5; color: #444; margin-top: 4px; }
+
+    /* ─── SETTINGS ─────────────────────────────── */
+    .settings-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 24px 28px;
+      max-width: 560px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .settings-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+    .range-group { margin-bottom: 18px; }
+    .range-label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+    .range-val { color: var(--dark); font-weight: 800; }
+    input[type="range"] { width: 100%; accent-color: var(--yellow); cursor: pointer; }
+
+    /* ─── MODALS & TASK MONITOR ────────────────── */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-box {
+      background-color: var(--dark);
+      color: var(--white);
+      width: 520px;
+      max-width: 92%;
+      border-radius: 20px;
+      border: 1px solid #333;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      position: relative;
+      animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalSlideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #333;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+    .modal-title { font-size: 17px; font-weight: 800; color: var(--white); }
+    .modal-close {
+      background: #2a2a2a; border: none; color: #aaa;
+      width: 28px; height: 28px; border-radius: 50%;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; transition: background 0.15s, color 0.15s;
+    }
+    .modal-close:hover { background: #444; color: var(--white); }
+
+    .template-download-card {
+      background-color: #222;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .template-info h4 { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 3px; }
+    .template-info p { font-size: 11.5px; color: #888; }
+    .btn-template-download {
+      background-color: transparent;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-template-download:hover {
+      background-color: var(--yellow);
+      color: #000;
+    }
+
+    .import-dropzone {
+      border: 2px dashed #444;
+      background-color: #1e1e1e;
+      border-radius: 14px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .import-dropzone:hover, .import-dropzone.dragover {
+      border-color: var(--yellow);
+      background-color: rgba(255, 214, 0, 0.05);
+    }
+    .dropzone-icon {
+      width: 42px; height: 42px;
+      background-color: #2a2a2a; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .dropzone-icon svg { stroke: var(--yellow); width: 20px; height: 20px; }
+
+    /* Progress Modal */
+    .progress-bar-bg {
+      width: 100%; height: 8px;
+      background-color: #333; border-radius: 4px;
+      overflow: hidden; margin: 16px 0 20px;
+    }
+    .progress-bar-fill {
+      height: 100%; width: 0%;
+      background-color: var(--yellow);
+      box-shadow: 0 0 10px var(--yellow);
+      transition: width 0.3s ease;
+    }
+    .task-step-item {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12.5px; margin-bottom: 10px; color: #888;
+    }
+    .task-step-item.done { color: #4CD964; font-weight: 600; }
+    .task-step-item.active { color: var(--yellow); font-weight: 700; }
+    .step-dot {
+      width: 8px; height: 8px; border-radius: 50%; background-color: #444;
+    }
+    .task-step-item.done .step-dot { background-color: #4CD964; }
+    .task-step-item.active .step-dot {
+      background-color: var(--yellow);
+      box-shadow: 0 0 8px var(--yellow);
+      animation: pulseGlow 1s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      from { transform: scale(1); opacity: 0.7; }
+      to { transform: scale(1.3); opacity: 1; }
+    }
+
+    /* Floating Task Widget */
+    .floating-task-pill {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: var(--dark);
+      border: 1px solid var(--yellow);
+      color: var(--white);
+      border-radius: 30px;
+      padding: 10px 18px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      cursor: pointer;
+      z-index: 900;
+      transition: transform 0.2s ease, background-color 0.2s;
+    }
+    .floating-task-pill:hover {
+      transform: translateY(-2px);
+      background-color: #2b2b2b;
+    }
+    .floating-task-pill .pulse-indicator {
+      width: 9px; height: 9px; border-radius: 50%;
+      background-color: var(--yellow);
+      box-shadow: 0 0 8px var(--yellow);
+      animation: pulseGlow 1s infinite alternate;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── SIDEBAR ────────────────────────────── -->
+<aside id="sidebar" class="collapsed">
+  <div id="toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar menu">
+    <svg id="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" style="transform: rotate(180deg);">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  </div>
+  <div>
+    <div class="brand-header">Leads Triage</div>
+    <ul class="nav-list">
+      <li class="nav-item active" id="nav-dashboard" onclick="switchView('dashboard', this)">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="9" rx="1.5"/>
+            <rect x="14" y="3" width="7" height="5" rx="1.5"/>
+            <rect x="14" y="12" width="7" height="9" rx="1.5"/>
+            <rect x="3" y="16" width="7" height="5" rx="1.5"/>
+          </svg>
+        </span>
+        Dashboard
+      </li>
+      <li class="nav-item" id="nav-pipelines" onclick="switchView('pipelines', this)">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+        </span>
+        All Leads
+      </li>
+      <li class="nav-item" id="nav-settings" onclick="switchView('settings', this)">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        Settings
+      </li>
+    </ul>
+  </div>
+  <button class="btn-import" onclick="triggerCustomImport()">
+    + Import CSV File
+  </button>
+</aside>
+
+<!-- ─── MAIN ───────────────────────────────── -->
+<main id="main-content">
+  <div class="content-wrapper">
+
+  <!-- DASHBOARD VIEW -->
+  <div id="view-dashboard" class="view-section active">
+    <!-- Header with Right Import Button -->
+    <div class="page-header-row">
+      <div class="page-header">
+        <div class="sub-tag">Sales Summary</div>
+        <div class="page-title">Dashboard <span class="title-badge">+</span></div>
+      </div>
+      <button class="btn-header-import" onclick="triggerCustomImport()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        + Import CSV
+      </button>
+    </div>
+
+    <!-- 5 Top Metric Widgets (Plain English) -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-title">Ready to Call</div>
+        <div class="metric-val" id="kpi-contact-rate">—</div>
+        <div class="metric-sub">Leads ready for sales call</div>
+        <button class="btn-view" onclick="filterTab('CONTACT NOW')">View Leads →</button>
+        <div class="progress-bar-vertical">
+          <div class="progress-fill" id="fill-contact" style="height: 0%"></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Potential Value</div>
+        <div class="metric-val" id="kpi-arr">—</div>
+        <div class="metric-sub" id="kpi-arr-sub">Estimated deal value</div>
+        <button class="btn-view" onclick="switchView('pipelines')">View Deals →</button>
+        <div class="progress-bar-vertical">
+          <div class="progress-fill" id="fill-arr" style="height: 0%"></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Follow-Up Later</div>
+        <div class="metric-val" id="kpi-nurture-rate">—</div>
+        <div class="metric-sub">Leads to email & nurture</div>
+        <button class="btn-view" onclick="filterTab('NURTURE')">View List →</button>
+        <div class="progress-bar-vertical">
+          <div class="progress-fill" id="fill-nurture" style="height: 0%"></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Bad / Junk Leads</div>
+        <div class="metric-val" id="kpi-disq-rate">—</div>
+        <div class="metric-sub" id="kpi-disq-sub">Job seekers & spam</div>
+        <button class="btn-view" onclick="filterTab('DISQUALIFY')">View Junk →</button>
+        <div class="progress-bar-vertical">
+          <div class="progress-fill" id="fill-disq" style="height: 0%"></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Average Lead Score</div>
+        <div class="metric-val" id="kpi-avg-score">—</div>
+        <div class="metric-sub">Out of 100 max rating</div>
+        <button class="btn-view" onclick="switchView('pipelines')">View All →</button>
+        <div class="progress-bar-vertical">
+          <div class="progress-fill" id="fill-avg" style="height: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="insights-row">
+      <div class="chart-card">
+        <div class="card-header-flex">
+          <div class="card-heading">What Leads Need Help With</div>
+          <button class="btn-dark-pill" onclick="switchView('pipelines')">View All →</button>
+        </div>
+        <div class="bars-container" id="pain-chart">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div>
+          <div class="card-heading">Lead Status Breakdown</div>
+          <div class="big-count" id="kpi-total">520</div>
+          <ul class="legend-list">
+            <li class="legend-item"><span class="dot dot-yellow"></span> <span id="legend-contact">Call Right Away (—)</span></li>
+            <li class="legend-item"><span class="dot dot-gray"></span> <span id="legend-nurture">Send Info / Follow Up (—)</span></li>
+            <li class="legend-item"><span class="dot dot-red"></span> <span id="legend-disq">Ignore / Not a Fit (—)</span></li>
+          </ul>
+        </div>
+        <button class="btn-dark-pill" style="width: 100%; margin-top: 14px;" onclick="switchView('pipelines')">View Full Lead List →</button>
+      </div>
+    </div>
+
+    <!-- Top 5 Priority Leads Spotlight Card (Tab Switcher) -->
+    <div class="chart-card">
+      <div class="card-header-flex">
+        <div style="display:flex; align-items:center; gap: 20px;">
+          <div class="card-heading">Priority Spotlight</div>
+          <div class="filter-tabs" style="border-bottom: none; padding-bottom: 0; gap: 16px;">
+            <div class="tab-item active" id="spotlight-tab-hot" onclick="switchSpotlightTab('hot', this)">Top 5 Call Now</div>
+            <div class="tab-item" id="spotlight-tab-nurture" onclick="switchSpotlightTab('nurture', this)">Top 5 Follow-Up</div>
+          </div>
+        </div>
+        <button class="btn-dark-pill" onclick="switchView('pipelines')">View All Leads →</button>
+      </div>
+
+      <div class="table-container" style="background: transparent; border-radius: 0;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name & Company</th>
+              <th>Score</th>
+              <th>Job Role</th>
+              <th>Monthly Budget</th>
+              <th>Main Need</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="spotlight-tbody">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPELINES VIEW -->
+  <div id="view-pipelines" class="view-section">
+    <div class="page-header-row">
+      <div class="page-header">
+        <div class="sub-tag">Lead Directory</div>
+        <div class="page-title">All Leads <span class="title-badge">+</span></div>
+      </div>
+      <button class="btn-header-import" onclick="triggerCustomImport()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        + Import CSV
+      </button>
+    </div>
+
+    <div class="controls-row">
+      <div class="search-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search by name, company, email..." oninput="renderTable()">
+      </div>
+
+      <!-- Custom Dropdown Selector -->
+      <div class="custom-dropdown" id="dataset-custom-dropdown">
+        <div class="custom-dropdown-trigger" onclick="toggleCustomDropdown(event)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="selected-dataset-label">Lead-Report-Messy-01 (520 leads)</span>
+          <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+
+        <div class="custom-dropdown-menu" id="custom-dropdown-menu">
+          <div class="custom-dropdown-item active" onclick="selectDatasetOption('Lead-Report-Messy-01', 'Lead-Report-Messy-01 (520 leads)', this)">
+            <span>Lead-Report-Messy-01</span> <span class="item-badge">520 leads</span>
+          </div>
+          <div class="custom-dropdown-item" onclick="selectDatasetOption('Cohort-3-Hot-Leads', 'Cohort-3-Hot-Leads (324 leads)', this)">
+            <span>Cohort-3-Hot-Leads</span> <span class="item-badge">324 leads</span>
+          </div>
+          <div class="custom-dropdown-item" onclick="selectDatasetOption('Cohort-3-Nurture-Queue', 'Cohort-3-Nurture-Queue (53 leads)', this)">
+            <span>Cohort-3-Nurture-Queue</span> <span class="item-badge">53 leads</span>
+          </div>
+          <div class="custom-dropdown-divider"></div>
+          <div class="custom-dropdown-item import-item" onclick="triggerCustomImport()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import New Lead CSV...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-tabs">
+      <div class="tab-item active" id="tab-ALL" onclick="setFilter('ALL', this)">All Leads</div>
+      <div class="tab-item" id="tab-CONTACT-NOW" onclick="setFilter('CONTACT NOW', this)">Call Now</div>
+      <div class="tab-item" id="tab-NURTURE" onclick="setFilter('NURTURE', this)">Follow Up Later</div>
+      <div class="tab-item" id="tab-DISQUALIFY" onclick="setFilter('DISQUALIFY', this)">Bad Fits / Junk</div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name & Company</th>
+            <th>What to Do</th>
+            <th>Lead Score</th>
+            <th>Job Role</th>
+            <th>Monthly Budget</th>
+            <th>Urgency</th>
+            <th>Main Problem / Note</th>
+          </tr>
+        </thead>
+        <tbody id="leads-tbody">
+          <tr><td colspan="8" style="text-align:center; padding:30px; color:#888;">Loading lead list...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="results-count" style="font-size:12px; color:#888; font-weight:600;"></div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div id="view-settings" class="view-section">
+    <div class="page-header">
+      <div class="sub-tag">Settings</div>
+      <div class="page-title">Scoring Rules <span class="title-badge">+</span></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Adjust Lead Rating System</h3>
+      <p style="font-size:12.5px; color:#888; margin-bottom:18px;">Customize how points are awarded to leads when uploading new files.</p>
+
+      <div class="range-group">
+        <div class="range-label">
+          <span>Points for Executives & Owners</span>
+          <span class="range-val" id="val-exec">30</span>
+        </div>
+        <input type="range" min="10" max="50" value="30" oninput="document.getElementById('val-exec').textContent = this.value">
+      </div>
+
+      <div class="range-group">
+        <div class="range-label">
+          <span>High Budget Cutoff (USD)</span>
+          <span class="range-val" id="val-budget">$5,000</span>
+        </div>
+        <input type="range" min="1000" max="20000" step="500" value="5000" oninput="document.getElementById('val-budget').textContent = '$' + Number(this.value).toLocaleString()">
+      </div>
+
+      <div class="range-group">
+        <div class="range-label">
+          <span>Minimum Score for "Call Now"</span>
+          <span class="range-val" id="val-min">60</span>
+        </div>
+        <input type="range" min="40" max="85" value="60" oninput="document.getElementById('val-min').textContent = this.value">
+      </div>
+
+      <button class="btn-dark-pill" onclick="alert('Settings saved! These rules will apply to your next lead import.')" style="margin-top:4px;">
+        Save Settings
+      </button>
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- ─── DRAWER OVERLAY ────────────────────── -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-header">
+    <div>
+      <div id="drawer-name" class="drawer-title">Lead Details</div>
+      <div id="drawer-company" style="font-size:12.5px; color:#888; margin-top:3px;"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body">
+    <!-- Injected by JS -->
+  </div>
+</div>
+
+<!-- ─── PRE-MENU IMPORT MODAL ──────────────── -->
+<div id="import-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Import & Score Lead Dataset</div>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+
+    <!-- Step 1: Download Template -->
+    <div class="template-download-card">
+      <div class="template-info">
+        <h4>Need a formatted dataset template?</h4>
+        <p>Download standard CSV format with correct columns</p>
+      </div>
+      <button class="btn-template-download" onclick="downloadCSVTemplate()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download CSV
+      </button>
+    </div>
+
+    <!-- Step 2: Drag & Drop Zone -->
+    <div class="import-dropzone" id="dropzone" onclick="document.getElementById('modal-file-input').click()">
+      <input type="file" id="modal-file-input" accept=".csv" style="display:none;" onchange="handleModalFileSelect(this.files)">
+      <div class="dropzone-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div style="font-size:14px; font-weight:700; color:#FFF; margin-bottom:4px;" id="dropzone-label">Click or Drag CSV file here</div>
+      <div style="font-size:11.5px; color:#888;">Supports .CSV files up to 50MB with name, email, budget & notes</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn-dark-pill" style="background:#222; color:#AAA;" onclick="closeImportModal()">Cancel</button>
+      <button class="btn-dark-pill" id="btn-start-triage" style="background:var(--yellow); color:#000; font-weight:800;" onclick="startModalTriageProcess()" disabled>Start Automated Triage →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── LIVE TASK PROGRESS MODAL ───────────── -->
+<div id="task-progress-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="progress-modal-title">Triage Engine Task</div>
+      <button class="modal-close" onclick="closeProgressModal()">✕</button>
+    </div>
+
+    <div style="font-size:13px; color:#AAA;" id="progress-file-name">Processing lead_dataset.csv...</div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-bar-fill"></div>
+    </div>
+
+    <div class="task-step-list">
+      <div class="task-step-item" id="step-1"><span class="step-dot"></span> [Stage 1/3] Parsing CSV structure & normalizing fields</div>
+      <div class="task-step-item" id="step-2"><span class="step-dot"></span> [Stage 2/3] Cleaning domain emails & evaluating monthly budgets</div>
+      <div class="task-step-item" id="step-3"><span class="step-dot"></span> [Stage 3/3] Scoring executive authority & intent classification</div>
+      <div class="task-step-item" id="step-4"><span class="step-dot"></span> [Complete] Compiling lead rankings & generating dashboard report</div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:22px;">
+      <button class="btn-dark-pill" style="background:#222; color:#AAA; font-size:12px;" onclick="minimizeProgressModal()">Minimize (Run in Background)</button>
+      <button class="btn-dark-pill" id="btn-view-results" style="background:var(--yellow); color:#000; font-weight:800; display:none;" onclick="viewTaskResults()">View Dashboard Results →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PERSISTENT FLOATING TASK WIDGET ────── -->
+<div class="floating-task-pill" id="floating-task-widget" onclick="openActiveTaskModal()">
+  <span class="pulse-indicator"></span>
+  <span id="floating-task-text" style="font-size:12.5px; font-weight:700;">1 Triage Task Active (45%)</span>
+</div>
+
+<!-- ─── DATA + LOGIC ──────────────────────── -->
+<script src="leads_data.js"></script>
+<script>
+  let currentFilter = 'ALL';
+  let sidebarCollapsed = true;
+  let currentSpotlightTab = 'hot';
+  let activeDatasetName = 'Lead-Report-Messy-01';
+
+  let selectedImportFile = null;
+  let activeTaskState = null;
+
+  // ── Download Template CSV
+  function downloadCSVTemplate() {
+    var sampleCSV = "Lead ID,Full Name,Company,Email,Job Title,Monthly Budget,Urgency,Notes\n" +
+                    "L-101,Sarah Jenkins,Apex Logistics,sarah@apexlogistics.com,VP of Operations,8500,Immediate,We spend 40 hours per week manually copying order numbers between systems.\n" +
+                    "L-102,Michael Chang,Growth Flow,mchang@gmail.com,Student,0,1 Month,Looking for internships or job openings in AI automation.\n" +
+                    "L-103,Elena Rostova,Summit Finance,elena@summitfin.io,Chief Executive Officer,15000,Immediate,Need automated inbox triage and AI client reporting immediately.";
+    var blob = new Blob([sampleCSV], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'kora_leads_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Open / Close Pre-Import Modal
+  function triggerCustomImport() {
+    document.getElementById('dataset-custom-dropdown').classList.remove('open');
+    document.getElementById('import-modal').style.display = 'flex';
+  }
+
+  function closeImportModal() {
+    document.getElementById('import-modal').style.display = 'none';
+  }
+
+  // ── File Selection & Drag-Drop Handlers
+  function handleModalFileSelect(files) {
+    if (files && files.length > 0) {
+      selectedImportFile = files[0];
+      document.getElementById('dropzone-label').textContent = "Selected: " + selectedImportFile.name;
+      document.getElementById('btn-start-triage').disabled = false;
+    }
+  }
+
+  // Drag & drop events for dropzone
+  setTimeout(function() {
+    var dropzone = document.getElementById('dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+      dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleModalFileSelect(e.dataTransfer.files);
+        }
+      });
+    }
+  }, 300);
+
+  // ── Start Automated Triage Process & Show Live Progress Task Modal
+  function startModalTriageProcess() {
+    if (!selectedImportFile) return;
+
+    closeImportModal();
+    var fileName = selectedImportFile.name;
+    document.getElementById('progress-file-name').textContent = "Processing dataset: " + fileName + "...";
+    document.getElementById('task-progress-modal').style.display = 'flex';
+
+    document.querySelectorAll('.task-step-item').forEach(s => {
+      s.classList.remove('done', 'active');
+    });
+    document.getElementById('progress-bar-fill').style.width = '10%';
+    document.getElementById('btn-view-results').style.display = 'none';
+
+    document.getElementById('step-1').classList.add('active');
+    updateTaskState(fileName, 25, 'Step 1: Parsing CSV');
+
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      var csvText = evt.target.result;
+
+      setTimeout(function() {
+        document.getElementById('step-1').classList.remove('active');
+        document.getElementById('step-1').classList.add('done');
+        document.getElementById('step-2').classList.add('active');
+        document.getElementById('progress-bar-fill').style.width = '55%';
+        updateTaskState(fileName, 55, 'Step 2: Cleaning domains & budgets');
+
+        setTimeout(function() {
+          document.getElementById('step-2').classList.remove('active');
+          document.getElementById('step-2').classList.add('done');
+          document.getElementById('step-3').classList.add('active');
+          document.getElementById('progress-bar-fill').style.width = '85%';
+          updateTaskState(fileName, 85, 'Step 3: Scoring authority & intent');
+
+          setTimeout(function() {
+            parseAndScoreCSV(csvText, fileName);
+
+            document.getElementById('step-3').classList.remove('active');
+            document.getElementById('step-3').classList.add('done');
+            document.getElementById('step-4').classList.add('done');
+            document.getElementById('progress-bar-fill').style.width = '100%';
+            document.getElementById('btn-view-results').style.display = 'inline-flex';
+
+            updateTaskState(fileName, 100, 'Complete', true);
+          }, 600);
+        }, 600);
+      }, 500);
+    };
+    reader.readAsText(selectedImportFile);
+  }
+
+  // ── Task State & LocalStorage Persistence Handler
+  function updateTaskState(filename, pct, statusMsg, completed) {
+    activeTaskState = {
+      filename: filename,
+      pct: pct,
+      statusMsg: statusMsg,
+      completed: !!completed,
+      timestamp: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem('KORA_ACTIVE_TASK', JSON.stringify(activeTaskState));
+    } catch(e) {}
+
+    var widget = document.getElementById('floating-task-widget');
+    var textEl = document.getElementById('floating-task-text');
+    if (widget && textEl) {
+      widget.style.display = 'flex';
+      if (completed) {
+        textEl.textContent = "Task Complete: " + filename;
+        widget.style.borderColor = '#4CD964';
+      } else {
+        textEl.textContent = "Processing " + filename + " (" + pct + "%)";
+        widget.style.borderColor = 'var(--yellow)';
+      }
+    }
+  }
+
+  function minimizeProgressModal() {
+    document.getElementById('task-progress-modal').style.display = 'none';
+  }
+
+  function closeProgressModal() {
+    document.getElementById('task-progress-modal').style.display = 'none';
+  }
+
+  function openActiveTaskModal() {
+    document.getElementById('task-progress-modal').style.display = 'flex';
+  }
+
+  function viewTaskResults() {
+    closeProgressModal();
+    if (activeTaskState && activeTaskState.filename) {
+      selectDatasetOption(activeTaskState.filename, activeTaskState.filename + ' (Custom Import)', null);
+    }
+    switchView('pipelines');
+  }
+
+  // ── Restore Task State on Tab Reload / Reopen
+  window.addEventListener('load', function() {
+    try {
+      var savedTask = localStorage.getItem('KORA_ACTIVE_TASK');
+      if (savedTask) {
+        activeTaskState = JSON.parse(savedTask);
+        if (activeTaskState && activeTaskState.filename) {
+          updateTaskState(activeTaskState.filename, activeTaskState.pct, activeTaskState.statusMsg, activeTaskState.completed);
+        }
+      }
+    } catch(e) {}
+  });
+
+  // ── Custom Dropdown Handler
+  function toggleCustomDropdown(e) {
+    if (e) e.stopPropagation();
+    var dd = document.getElementById('dataset-custom-dropdown');
+    dd.classList.toggle('open');
+  }
+
+  function selectDatasetOption(val, label, el) {
+    document.querySelectorAll('.custom-dropdown-item').forEach(i => i.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.getElementById('selected-dataset-label').textContent = label;
+    document.getElementById('dataset-custom-dropdown').classList.remove('open');
+    switchDatasetReport(val);
+  }
+
+  // Click outside custom dropdown to close
+  document.addEventListener('click', function(e) {
+    var dd = document.getElementById('dataset-custom-dropdown');
+    if (dd && dd.classList.contains('open')) {
+      if (!dd.contains(e.target)) {
+        dd.classList.remove('open');
+      }
+    }
+  });
+
+  // ── In-Browser Triage & Scoring Engine for Uploaded Raw CSVs
+  function parseAndScoreCSV(csvText, filename) {
+    var lines = csvText.split(/\r\n|\n/);
+    if (lines.length < 2) return;
+
+    var headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/["']/g, ''));
+    var rawRows = [];
+
+    for (var i = 1; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+
+      var values = [];
+      var insideQuote = false;
+      var curVal = '';
+      for (var c = 0; c < line.length; c++) {
+        var char = line[c];
+        if (char === '"' || char === "'") { insideQuote = !insideQuote; }
+        else if (char === ',' && !insideQuote) { values.push(curVal.trim().replace(/^["']|["']$/g, '')); curVal = ''; }
+        else { curVal += char; }
+      }
+      values.push(curVal.trim().replace(/^["']|["']$/g, ''));
+
+      var rowObj = {};
+      headers.forEach((h, idx) => { rowObj[h] = values[idx] || ''; });
+      rawRows.push(rowObj);
+    }
+
+    var freeDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'protonmail.com'];
+
+    var scoredLeads = rawRows.map(function(r, index) {
+      var email = r.email || r.contact_email || '';
+      var domain = email.includes('@') ? email.split('@')[1].toLowerCase() : '';
+      var isCorp = domain && !freeDomains.includes(domain);
+      var name = r.name || r.full_name || 'Prospect ' + (index + 1);
+      var company = r.company || r.organization || (domain ? domain.split('.')[0] : '—');
+      var title = r.title || r.job_title || 'Decision Maker';
+      var notes = r.notes || r.message || r.pain || '';
+
+      var budgetStr = r.budget || r.monthly_budget || '0';
+      var budgetNum = parseFloat(budgetStr.replace(/[^0-9.]/g, '')) || 0;
+      var budgetFmt = budgetNum > 0 ? '$' + budgetNum.toLocaleString() : 'TBD';
+
+      var titlePts = 25;
+      var titleLabel = 'Ops Leader (Tier 2)';
+      var titleLower = title.toLowerCase();
+      if (titleLower.includes('ceo') || titleLower.includes('owner') || titleLower.includes('founder') || titleLower.includes('director') || titleLower.includes('vp')) {
+        titlePts = 30; titleLabel = 'Executive Buyer (Tier 1)';
+      }
+
+      var budgetPts = 15;
+      if (budgetNum >= 10000) budgetPts = 25;
+      else if (budgetNum >= 5000) budgetPts = 20;
+
+      var intentPts = 25;
+      var rec = 'CONTACT NOW';
+      var disq = titleLower.includes('student') || titleLower.includes('intern') || notes.toLowerCase().includes('job') || notes.toLowerCase().includes('career');
+
+      if (disq) {
+        rec = 'DISQUALIFY';
+        titleLabel = 'Non-Buyer / Job Seeker';
+        intentPts = 0; titlePts = 0; budgetPts = 0;
+      } else if (budgetNum < 2000 && titlePts < 25) {
+        rec = 'NURTURE';
+      }
+
+      var totalScore = Math.min(100, titlePts + budgetPts + intentPts + (isCorp ? 10 : 5) + 10);
+      if (rec === 'DISQUALIFY') totalScore = Math.min(30, totalScore);
+
+      return {
+        rank: index + 1,
+        lead_id: r.lead_id || 'L-' + (1000 + index),
+        name: name,
+        company: company,
+        email: email,
+        domain: domain,
+        title_raw: title,
+        title_label: titleLabel,
+        budget_fmt: budgetFmt,
+        budget_num: budgetNum,
+        estimated_arr_usd: budgetNum * 12,
+        estimated_arr_fmt: '$' + (budgetNum * 12).toLocaleString(),
+        total_score: totalScore,
+        recommendation: rec,
+        sales_sla: rec === 'CONTACT NOW' ? '< 1 Hour SLA' : (rec === 'NURTURE' ? '24 Hour SLA' : 'N/A'),
+        intent_level: rec === 'CONTACT NOW' ? 'HIGH' : (rec === 'NURTURE' ? 'MEDIUM' : 'LOW'),
+        urgency: 'IMMEDIATE',
+        pain_category: 'OTHER',
+        pain_summary: notes.substring(0, 70) || 'Custom Projects',
+        notes: notes
+      };
+    });
+
+    scoredLeads.sort((a, b) => b.total_score - a.total_score);
+    scoredLeads.forEach((l, idx) => { l.rank = idx + 1; });
+
+    window.CUSTOM_DATASETS = window.CUSTOM_DATASETS || {};
+    window.CUSTOM_DATASETS[filename] = scoredLeads;
+
+    var menu = document.getElementById('custom-dropdown-menu');
+    var divider = menu.querySelector('.custom-dropdown-divider');
+    var item = document.createElement('div');
+    item.className = 'custom-dropdown-item';
+    item.onclick = function() { selectDatasetOption(filename, filename + ' (' + scoredLeads.length + ' leads)', this); };
+    item.innerHTML = '<span>' + filename + '</span> <span class="item-badge">' + scoredLeads.length + ' leads</span>';
+    menu.insertBefore(item, divider);
+
+    selectDatasetOption(filename, filename + ' (' + scoredLeads.length + ' leads)', item);
+  }
+
+  function getActiveLeads() {
+    if (window.CUSTOM_DATASETS && window.CUSTOM_DATASETS[activeDatasetName]) {
+      return window.CUSTOM_DATASETS[activeDatasetName];
+    }
+    if (typeof LEADS_DATA === 'undefined' || !LEADS_DATA.leads) return [];
+    if (activeDatasetName === 'Cohort-3-Hot-Leads') {
+      return LEADS_DATA.leads.filter(function(l) { return l.recommendation === 'CONTACT NOW'; });
+    }
+    if (activeDatasetName === 'Cohort-3-Nurture-Queue') {
+      return LEADS_DATA.leads.filter(function(l) { return l.recommendation === 'NURTURE'; });
+    }
+    return LEADS_DATA.leads;
+  }
+
+  function switchDatasetReport(val) {
+    if (val === 'Import-New-CSV') {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv';
+      input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (file) {
+          var reader = new FileReader();
+          reader.onload = function(evt) {
+            parseAndScoreCSV(evt.target.result, file.name);
+          };
+          reader.readAsText(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    activeDatasetName = val;
+    populateDashboard();
+    renderTable();
+  }
+
+  // ── Click outside sidebar to close it
+  document.addEventListener('click', function(e) {
+    var sidebar = document.getElementById('sidebar');
+    var toggleBtn = document.getElementById('toggle-btn');
+    if (sidebar && !sidebarCollapsed) {
+      if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+        toggleSidebar();
+      }
+    }
+  });
+
+  // ── Sidebar toggle
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    document.getElementById('sidebar').classList.toggle('collapsed', sidebarCollapsed);
+    document.getElementById('toggle-icon').style.transform = sidebarCollapsed ? 'rotate(180deg)' : '';
+  }
+
+  // ── View switching
+  function switchView(viewName, el) {
+    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + viewName).classList.add('active');
+
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    var navEl = document.getElementById('nav-' + viewName);
+    if (navEl) navEl.classList.add('active');
+
+    if (viewName === 'pipelines') {
+      renderTable();
+    }
+  }
+
+  // ── Tab filter
+  function setFilter(filterVal, el) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    currentFilter = filterVal;
+    renderTable();
+  }
+
+  // ── Spotlight Tab Switcher
+  function switchSpotlightTab(tabType, el) {
+    document.querySelectorAll('#spotlight-tab-hot, #spotlight-tab-nurture').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    currentSpotlightTab = tabType;
+    renderSpotlightTable();
+  }
+
+  function renderSpotlightTable() {
+    var tbody = document.getElementById('spotlight-tbody');
+    if (!tbody || typeof LEADS_DATA === 'undefined' || !LEADS_DATA.leads) return;
+    tbody.innerHTML = '';
+
+    var leads = getActiveLeads();
+    var targetRec = currentSpotlightTab === 'hot' ? 'CONTACT NOW' : 'NURTURE';
+    var top5 = leads.filter(function(l) {
+      return l.recommendation === targetRec;
+    }).slice(0, 5);
+
+    if (top5.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">No leads found for this category.</td></tr>';
+      return;
+    }
+
+    top5.forEach(function(l) {
+      var tr = document.createElement('tr');
+      tr.onclick = function() { openDrawer(l); };
+
+      var score = l.total_score || 0;
+      var name = l.name || 'Unknown';
+      var company = l.company || '—';
+      var titleLabel = l.title_label || l.title_category || '—';
+      var budget = l.budget_fmt || '—';
+      var pain = l.pain_summary || l.pain_point || '—';
+
+      tr.innerHTML =
+        '<td><strong>#' + l.rank + '</strong></td>' +
+        '<td><div style="font-weight:700;">' + name + '</div><div style="font-size:11px;color:#888;">' + company + '</div></td>' +
+        '<td><span style="font-weight:800;font-size:13.5px;color:#000;">' + score + '</span><span style="color:#888;font-size:11px;">/100</span></td>' +
+        '<td style="font-size:12px;">' + titleLabel + '</td>' +
+        '<td style="font-size:12px;font-weight:700;">' + budget + '</td>' +
+        '<td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#555;">' + pain + '</td>' +
+        '<td><button class="btn-view" style="padding:4px 10px;font-size:11px;">Details →</button></td>';
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Navigate from dashboard card to filtered pipelines
+  function filterTab(recVal) {
+    switchView('pipelines');
+    var tabId = 'tab-' + recVal.replace(' ', '-');
+    var tabEl = document.getElementById(tabId);
+    setFilter(recVal, tabEl);
+  }
+
+  // ── Simple plain-English pain labels
+  function formatPainCategory(code) {
+    if (!code || code === 'N/A') return 'Custom Projects';
+    var map = {
+      'INBOX_TRIAGE': 'Inbox Overflow',
+      'DATA_PIPELINE': 'Copying Data',
+      'OUTREACH': 'Prospecting',
+      'AD_OPS': 'Ad Budgets',
+      'REPORTING': 'Client Reports',
+      'OTHER': 'Repetitive Tasks',
+      'NONE': 'Custom Projects',
+      'none': 'Custom Projects'
+    };
+    return map[code] || code;
+  }
+
+  // ── Render leads table
+  function renderTable() {
+    var tbody = document.getElementById('leads-tbody');
+    var countEl = document.getElementById('results-count');
+    var query = document.getElementById('search-input').value.toLowerCase().trim();
+    tbody.innerHTML = '';
+
+    var leads = getActiveLeads();
+    if (leads.length === 0 && (typeof LEADS_DATA === 'undefined' || !LEADS_DATA.leads)) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#888;">⚠ Could not load lead data. Ensure leads_data.js is present.</td></tr>';
+      return;
+    }
+
+    var filtered = leads.filter(function(l) {
+      var matchFilter = currentFilter === 'ALL' || l.recommendation === currentFilter;
+      var matchSearch = !query ||
+        (l.name && l.name.toLowerCase().includes(query)) ||
+        (l.company && l.company.toLowerCase().includes(query)) ||
+        (l.email && l.email.toLowerCase().includes(query)) ||
+        (l.notes && l.notes.toLowerCase().includes(query)) ||
+        (l.notes_raw && l.notes_raw.toLowerCase().includes(query));
+      return matchFilter && matchSearch;
+    });
+
+    countEl.textContent = filtered.length + ' lead' + (filtered.length !== 1 ? 's' : '') + ' shown';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>No leads found</h3><p>Try searching for a different name or company.</p></div></td></tr>';
+      return;
+    }
+
+    filtered.forEach(function(l) {
+      var tr = document.createElement('tr');
+      tr.onclick = function() { openDrawer(l); };
+
+      var badgeClass = 'badge-contact';
+      var recLabel = 'CALL NOW';
+      if (l.recommendation === 'NURTURE') { badgeClass = 'badge-nurture'; recLabel = 'FOLLOW UP'; }
+      if (l.recommendation === 'DISQUALIFY') { badgeClass = 'badge-disqualify'; recLabel = "DON'T CALL"; }
+
+      var score = l.total_score || 0;
+      var pct = Math.min(100, Math.max(0, score));
+      var name = l.name || 'Unknown';
+      var company = l.company || '—';
+      var titleLabel = l.title_label || l.title_category || '—';
+      var budget = l.budget_fmt || '—';
+      var intent = l.intent_level || '—';
+      var pain = l.pain_summary || l.pain_point || '—';
+
+      tr.innerHTML =
+        '<td><strong>#' + l.rank + '</strong></td>' +
+        '<td><div style="font-weight:700;">' + name + '</div><div style="font-size:11px;color:#888;">' + company + '</div></td>' +
+        '<td><span class="badge-rec ' + badgeClass + '">' + recLabel + '</span></td>' +
+        '<td><span style="font-weight:800;font-size:13.5px;">' + score + '</span><span style="color:#888;font-size:11px;">/100</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:' + pct + '%;"></div></div></td>' +
+        '<td style="font-size:12px;">' + titleLabel + '</td>' +
+        '<td style="font-size:12px;font-weight:700;">' + budget + '</td>' +
+        '<td style="font-size:12px;">' + intent + '</td>' +
+        '<td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#555;">' + pain + '</td>';
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Drawer Details View
+  function openDrawer(l) {
+    document.getElementById('drawer-name').textContent = l.name || 'Lead Details';
+    document.getElementById('drawer-company').textContent = l.company ? l.company + ' (' + (l.domain || 'N/A') + ')' : '';
+
+    var rec = l.recommendation || '—';
+    var badgeClass = 'badge-contact';
+    var recLabel = 'CALL NOW (High Priority)';
+    if (rec === 'NURTURE') { badgeClass = 'badge-nurture'; recLabel = 'FOLLOW UP (Send Email Info)'; }
+    if (rec === 'DISQUALIFY') { badgeClass = 'badge-disqualify'; recLabel = "DON'T CALL (Bad Fit / Spam)"; }
+
+    document.getElementById('drawer-body').innerHTML =
+      '<div class="drawer-field"><label>What to Do</label><p><span class="badge-rec ' + badgeClass + '">' + recLabel + '</span></p></div>' +
+      '<div class="drawer-field"><label>Lead Score</label><p><strong>' + (l.total_score || '—') + '</strong> / 100</p></div>' +
+      '<div class="drawer-field"><label>How Fast to Call</label><p>' + (l.sales_sla || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Estimated Deal Value</label><p>' + (l.estimated_arr_fmt || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Job Title</label><p>' + (l.title_raw || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Role Level</label><p>' + (l.title_label || l.title_category || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Email Address</label><p>' + (l.email || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Monthly Budget</label><p>' + (l.budget_fmt || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>Interest Level</label><p>' + (l.intent_level || '—') + '</p></div>' +
+      '<div class="drawer-field"><label>When They Want to Start</label><p>' + (l.urgency || '—') + '</p></div>' +
+      '<div class="drawer-notes"><label style="font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:0.8px;">What They Wrote in Notes</label><p>' + (l.notes || l.notes_raw || 'No notes left.') + '</p></div>';
+
+    document.getElementById('drawer-overlay').style.display = 'block';
+    document.getElementById('drawer').classList.add('open');
+  }
+
+  // ── Close Drawer
+  function closeDrawer() {
+    document.getElementById('drawer-overlay').style.display = 'none';
+    document.getElementById('drawer').classList.remove('open');
+  }
+
+  // ── Dashboard KPI population
+  function populateDashboard() {
+    if (typeof LEADS_DATA === 'undefined' || !LEADS_DATA.leads) return;
+
+    var leads = getActiveLeads();
+    var total = leads.length;
+    var contactNow = leads.filter(function(l) { return l.recommendation === 'CONTACT NOW'; }).length;
+    var nurture = leads.filter(function(l) { return l.recommendation === 'NURTURE'; }).length;
+    var disq = leads.filter(function(l) { return l.recommendation === 'DISQUALIFY'; }).length;
+
+    var contactPct = total ? Math.round(contactNow / total * 100) : 0;
+    var nurturePct = total ? Math.round(nurture / total * 100) : 0;
+    var disqPct = total ? Math.round(disq / total * 100) : 0;
+
+    var sumScores = leads.reduce(function(acc, l) { return acc + (l.total_score || 0); }, 0);
+    var avgScore = total ? (sumScores / total).toFixed(1) : 0;
+
+    document.getElementById('kpi-total').textContent = total;
+    document.getElementById('kpi-contact-rate').textContent = contactPct + '%';
+    document.getElementById('kpi-nurture-rate').textContent = nurturePct + '%';
+    document.getElementById('kpi-disq-rate').textContent = disqPct + '%';
+    document.getElementById('kpi-avg-score').textContent = avgScore;
+
+    document.getElementById('kpi-arr-sub').textContent = 'Estimated total value';
+    document.getElementById('kpi-disq-sub').textContent = disq + ' spam & job seekers';
+
+    document.getElementById('legend-contact').textContent = 'Call Right Away (' + contactNow + ')';
+    document.getElementById('legend-nurture').textContent = 'Send Info / Follow Up (' + nurture + ')';
+    document.getElementById('legend-disq').textContent = 'Ignore / Not a Fit (' + disq + ')';
+
+    // ARR calculation
+    var totalArr = 0;
+    leads.filter(function(l) { return l.recommendation === 'CONTACT NOW'; }).forEach(function(l) {
+      if (l.estimated_arr_usd) totalArr += Number(l.estimated_arr_usd) || 0;
+    });
+    var arrStr = totalArr >= 1000000 ? '$' + (totalArr / 1000000).toFixed(1) + 'M' : '$' + Math.round(totalArr / 1000) + 'K';
+    document.getElementById('kpi-arr').textContent = arrStr;
+
+    // Progress fills
+    setTimeout(function() {
+      document.getElementById('fill-contact').style.height = contactPct + '%';
+      document.getElementById('fill-arr').style.height = '85%';
+      document.getElementById('fill-nurture').style.height = nurturePct + '%';
+      document.getElementById('fill-disq').style.height = disqPct + '%';
+      document.getElementById('fill-avg').style.height = Math.round(avgScore) + '%';
+    }, 200);
+
+    // Pain chart
+    var painCounts = {};
+    leads.forEach(function(l) {
+      var code = l.pain_category || l.pain_point || '';
+      if (!code || code === 'N/A') return;
+      var label = formatPainCategory(code);
+      painCounts[label] = (painCounts[label] || 0) + 1;
+    });
+    var sortedPains = Object.entries(painCounts).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 6);
+    var maxCount = sortedPains.length ? sortedPains[0][1] : 1;
+    var chart = document.getElementById('pain-chart');
+    chart.innerHTML = '';
+    if (sortedPains.length === 0) {
+      chart.innerHTML = '<div style="color:#888;font-size:12px;width:100%;text-align:center;padding:16px;">No notes left by leads.</div>';
+    } else {
+      sortedPains.forEach(function(pair) {
+        var label = pair[0];
+        var count = pair[1];
+        var pct = total ? (count / total * 100).toFixed(1) : 0;
+        var h = Math.round(count / maxCount * 135);
+        var div = document.createElement('div');
+        div.className = 'bar-group';
+        div.innerHTML =
+          '<div class="bar-tooltip"><span>' + count + '</span> leads (' + pct + '%)</div>' +
+          '<div class="bar-pillar" style="height:' + h + 'px;"></div>' +
+          '<div class="bar-label">' + label + '</div>';
+        chart.appendChild(div);
+      });
+    }
+
+    renderSpotlightTable();
+  }
+
+  // ── Init
+  window.onload = function() {
+    populateDashboard();
+  };
+</script>
+</body>
+</html>
