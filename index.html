@@ -1086,41 +1086,179 @@
   <!-- SETTINGS VIEW -->
   <div id="view-settings" class="view-section">
     <div class="page-header">
-      <div class="sub-tag">Settings</div>
-      <div class="page-title">Scoring Rules <span class="title-badge">+</span></div>
+      <div class="sub-tag">RevOps & Engine Config</div>
+      <div class="page-title">Scoring Rules & AI Settings <span class="title-badge">+</span></div>
     </div>
 
-    <div class="settings-card">
-      <h3>Adjust Lead Rating System</h3>
-      <p style="font-size:12.5px; color:#888; margin-bottom:18px;">Customize how points are awarded to leads when uploading new files.</p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px;">
+      <!-- Card 1: BANT Point Allocations with Explanations -->
+      <div class="settings-card">
+        <h3 style="font-size:16px; font-weight:800; color:var(--dark); margin-bottom:4px;">Lead Rating System & Weights</h3>
+        <p style="font-size:12px; color:#888; margin-bottom:20px;">Customize how points are calculated for incoming leads when running triage.</p>
 
-      <div class="range-group">
-        <div class="range-label">
-          <span>Points for Executives & Owners</span>
-          <span class="range-val" id="val-exec">30</span>
+        <!-- Setting 1 -->
+        <div class="range-group" style="margin-bottom:20px;">
+          <div class="range-label">
+            <span style="font-weight:700;">Executive Buyer (Tier 1) Points</span>
+            <span class="range-val" id="val-exec">30 pts</span>
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:6px;">
+            <strong>What it affects:</strong> Points awarded to C-Suite (CEOs, Founders, CPOs, CFOs). Higher values push C-Level decision makers to the top of your queue.
+          </div>
+          <input type="range" id="input-exec" min="10" max="50" value="30" oninput="document.getElementById('val-exec').textContent = this.value + ' pts'">
         </div>
-        <input type="range" min="10" max="50" value="30" oninput="document.getElementById('val-exec').textContent = this.value">
+
+        <!-- Setting 2 -->
+        <div class="range-group" style="margin-bottom:20px;">
+          <div class="range-label">
+            <span style="font-weight:700;">Ops Leader (Tier 2) Points</span>
+            <span class="range-val" id="val-leader">25 pts</span>
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:6px;">
+            <strong>What it affects:</strong> Points awarded to Operations Managers, Team Leads, and Department Directors.
+          </div>
+          <input type="range" id="input-leader" min="10" max="40" value="25" oninput="document.getElementById('val-leader').textContent = this.value + ' pts'">
+        </div>
+
+        <!-- Setting 3 -->
+        <div class="range-group" style="margin-bottom:20px;">
+          <div class="range-label">
+            <span style="font-weight:700;">Corporate Domain Email Bonus</span>
+            <span class="range-val" id="val-domain">10 pts</span>
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:6px;">
+            <strong>What it affects:</strong> Bonus points given for company domain emails (e.g. <code>@company.com</code>) vs free webmail (e.g. <code>@gmail.com</code>).
+          </div>
+          <input type="range" id="input-domain" min="0" max="25" value="10" oninput="document.getElementById('val-domain').textContent = this.value + ' pts'">
+        </div>
+
+        <!-- Setting 4 -->
+        <div class="range-group" style="margin-bottom:20px;">
+          <div class="range-label">
+            <span style="font-weight:700;">High Budget Cutoff (USD)</span>
+            <span class="range-val" id="val-budget">$5,000</span>
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:6px;">
+            <strong>What it affects:</strong> Monthly budget threshold (default $5k). Leads above this amount earn full budget qualification points (25 pts).
+          </div>
+          <input type="range" id="input-budget" min="1000" max="20000" step="500" value="5000" oninput="document.getElementById('val-budget').textContent = '$' + Number(this.value).toLocaleString()">
+        </div>
+
+        <!-- Setting 5 -->
+        <div class="range-group">
+          <div class="range-label">
+            <span style="font-weight:700;">Minimum Score for "Call Now"</span>
+            <span class="range-val" id="val-min">60 pts</span>
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:6px;">
+            <strong>What it affects:</strong> Cutoff rating score. Leads scoring at or above this threshold are flagged as <strong>CALL NOW</strong> for urgent outreach.
+          </div>
+          <input type="range" id="input-min" min="40" max="85" value="60" oninput="document.getElementById('val-min').textContent = this.value + ' pts'">
+        </div>
       </div>
 
-      <div class="range-group">
-        <div class="range-label">
-          <span>High Budget Cutoff (USD)</span>
-          <span class="range-val" id="val-budget">$5,000</span>
-        </div>
-        <input type="range" min="1000" max="20000" step="500" value="5000" oninput="document.getElementById('val-budget').textContent = '$' + Number(this.value).toLocaleString()">
-      </div>
+      <!-- Card 2: SLA & AI Engine Settings with Custom Dropdowns & Lock -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <div class="settings-card">
+          <h3 style="font-size:16px; font-weight:800; color:var(--dark); margin-bottom:4px;">SLA & Outreach Routing</h3>
+          <p style="font-size:12px; color:#888; margin-bottom:16px;">Set response expectations and automatic disqualification rules.</p>
 
-      <div class="range-group">
-        <div class="range-label">
-          <span>Minimum Score for "Call Now"</span>
-          <span class="range-val" id="val-min">60</span>
-        </div>
-        <input type="range" min="40" max="85" value="60" oninput="document.getElementById('val-min').textContent = this.value">
-      </div>
+          <div style="margin-bottom:18px;">
+            <label style="font-size:12px; font-weight:700; color:#555; display:block; margin-bottom:4px;">High Priority "Call Now" Response SLA</label>
+            <div style="font-size:11.5px; color:#666; margin-bottom:8px;">
+              <strong>What it affects:</strong> The target call turnaround SLA displayed on lead audit drawers.
+            </div>
+            
+            <div class="custom-dropdown" id="sla-custom-dropdown" style="width:100%;">
+              <div class="custom-dropdown-trigger" onclick="toggleSlaCustomDropdown(event)" style="width:100%; justify-content:space-between;">
+                <span id="selected-sla-label">&lt; 1 Hour Response SLA (Recommended)</span>
+                <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <div class="custom-dropdown-menu" id="sla-custom-menu" style="width:100%;">
+                <div class="custom-dropdown-item active" onclick="selectSlaOption('< 1 Hour SLA', '< 1 Hour Response SLA (Recommended)', this)">
+                  <span>&lt; 1 Hour Response SLA</span> <span class="item-badge" style="background:var(--yellow); color:#000;">Recommended</span>
+                </div>
+                <div class="custom-dropdown-item" onclick="selectSlaOption('15 Mins SLA', '15 Mins SLA (Urgent Leads)', this)">
+                  <span>15 Mins SLA (Urgent Leads)</span> <span class="item-badge">Fast</span>
+                </div>
+                <div class="custom-dropdown-item" onclick="selectSlaOption('2 Hours SLA', '2 Hours SLA', this)">
+                  <span>2 Hours SLA</span> <span class="item-badge">Standard</span>
+                </div>
+                <div class="custom-dropdown-item" onclick="selectSlaOption('4 Hours SLA', '4 Hours SLA', this)">
+                  <span>4 Hours SLA</span> <span class="item-badge">Relaxed</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <button class="btn-dark-pill" onclick="alert('Settings saved! These rules will apply to your next lead import.')" style="margin-top:4px;">
-        Save Settings
-      </button>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid #EEE;">
+            <input type="checkbox" id="check-auto-disq" checked style="width:18px; height:18px; accent-color:var(--yellow); cursor:pointer;">
+            <div>
+              <div style="font-size:12.5px; font-weight:700; color:var(--dark);">Auto-Disqualify Job Seekers</div>
+              <div style="font-size:11.5px; color:#666;">
+                <strong>What it affects:</strong> Automatically flags Students, Interns, and CV submissions as <strong>DON'T CALL</strong> to prevent wasting sales time.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3 style="font-size:16px; font-weight:800; color:var(--dark); margin-bottom:4px;">Gemini AI Triage Engine</h3>
+          <p style="font-size:12px; color:#888; margin-bottom:16px;">Configure backend LLM model selection and architecture parameters.</p>
+
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px; font-weight:700; color:#555; display:block; margin-bottom:4px;">Gemini Classification Model</label>
+            <div style="font-size:11.5px; color:#666; margin-bottom:8px;">
+              <strong>What it affects:</strong> The LLM engine used for semantic lead intent classification.
+            </div>
+
+            <!-- Custom Model Selector Dropdown with Locked Items (Zero Emojis) -->
+            <div class="custom-dropdown" id="model-custom-dropdown" style="width:100%;">
+              <div class="custom-dropdown-trigger" onclick="toggleModelCustomDropdown(event)" style="width:100%; justify-content:space-between;">
+                <span id="selected-model-label">gemini-3.1-flash-lite (Active — Task 1 Engine)</span>
+                <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <div class="custom-dropdown-menu" id="model-custom-menu" style="width:100%;">
+                <div class="custom-dropdown-item active" style="font-weight:700;">
+                  <span>gemini-3.1-flash-lite</span> <span class="item-badge" style="background:var(--yellow); color:#000;">Active Spec</span>
+                </div>
+                <div class="custom-dropdown-item" style="opacity:0.45; cursor:not-allowed;" onclick="alert('Model locked by Task 1 Specification rules.')">
+                  <span>gemini-1.5-flash</span>
+                  <span class="item-badge" style="background:#444; color:#AAA; display:inline-flex; align-items:center; gap:4px;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Locked
+                  </span>
+                </div>
+                <div class="custom-dropdown-item" style="opacity:0.45; cursor:not-allowed;" onclick="alert('Model locked by Task 1 Specification rules.')">
+                  <span>gemini-1.5-pro</span>
+                  <span class="item-badge" style="background:#444; color:#AAA; display:inline-flex; align-items:center; gap:4px;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Locked
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:11px; color:#888; margin-top:6px; display:flex; align-items:center; gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Locked to <code>gemini-3.1-flash-lite</code> per Task 1 Architecture specification.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dedicated Full-Width Settings Action Footer -->
+    <div class="settings-card" style="margin-top:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+      <div>
+        <div style="font-size:14px; font-weight:800; color:var(--dark);">Apply System Configuration</div>
+        <div style="font-size:12px; color:#888;">Saves all scoring weights, SLA response targets, and model rules to your active engine session.</div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <button class="btn-dark-pill" style="background:#222; color:#AAA; padding:10px 18px;" onclick="resetEngineSettings()">
+          Reset Defaults
+        </button>
+        <button class="btn-dark-pill" style="background:var(--yellow); color:#000; font-weight:800; padding:10px 24px;" onclick="saveEngineSettings()">
+          Save All Settings & Apply →
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1454,6 +1592,84 @@
       selectDatasetOption(activeTaskState.filename, activeTaskState.filename + ' (Custom Import)', null);
     }
     switchView('pipelines');
+  }
+
+  let selectedSlaValue = '< 1 Hour SLA';
+
+  function toggleSlaCustomDropdown(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('sla-custom-dropdown').classList.toggle('open');
+    var md = document.getElementById('model-custom-dropdown');
+    if (md) md.classList.remove('open');
+  }
+
+  function selectSlaOption(val, label, el) {
+    document.querySelectorAll('#sla-custom-menu .custom-dropdown-item').forEach(i => i.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.getElementById('selected-sla-label').textContent = label;
+    document.getElementById('sla-custom-dropdown').classList.remove('open');
+    selectedSlaValue = val;
+  }
+
+  function toggleModelCustomDropdown(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('model-custom-dropdown').classList.toggle('open');
+    var sd = document.getElementById('sla-custom-dropdown');
+    if (sd) sd.classList.remove('open');
+  }
+
+  // Click outside to close custom dropdowns
+  document.addEventListener('click', function(e) {
+    ['dataset-custom-dropdown', 'sla-custom-dropdown', 'model-custom-dropdown'].forEach(id => {
+      var el = document.getElementById(id);
+      if (el && el.classList.contains('open')) {
+        if (!el.contains(e.target)) {
+          el.classList.remove('open');
+        }
+      }
+    });
+  });
+
+  // ── Save & Reset Engine Settings
+  function saveEngineSettings() {
+    var config = {
+      execPts: parseInt(document.getElementById('input-exec').value) || 30,
+      leaderPts: parseInt(document.getElementById('input-leader').value) || 25,
+      domainPts: parseInt(document.getElementById('input-domain').value) || 10,
+      budgetCutoff: parseInt(document.getElementById('input-budget').value) || 5000,
+      minScore: parseInt(document.getElementById('input-min').value) || 60,
+      sla: selectedSlaValue,
+      autoDisq: document.getElementById('check-auto-disq').checked,
+      model: 'gemini-3.1-flash-lite'
+    };
+
+    try {
+      localStorage.setItem('KORA_ENGINE_CONFIG', JSON.stringify(config));
+    } catch(e) {}
+
+    alert('Engine Settings Saved! Your custom scoring weights and SLA rules have been applied.');
+  }
+
+  function resetEngineSettings() {
+    document.getElementById('input-exec').value = 30;
+    document.getElementById('val-exec').textContent = '30 pts';
+    document.getElementById('input-leader').value = 25;
+    document.getElementById('val-leader').textContent = '25 pts';
+    document.getElementById('input-domain').value = 10;
+    document.getElementById('val-domain').textContent = '10 pts';
+    document.getElementById('input-budget').value = 5000;
+    document.getElementById('val-budget').textContent = '$5,000';
+    document.getElementById('input-min').value = 60;
+    document.getElementById('val-min').textContent = '60 pts';
+    selectedSlaValue = '< 1 Hour SLA';
+    document.getElementById('selected-sla-label').textContent = '< 1 Hour Response SLA (Recommended)';
+    document.getElementById('check-auto-disq').checked = true;
+
+    try {
+      localStorage.removeItem('KORA_ENGINE_CONFIG');
+    } catch(e) {}
+
+    alert('Settings reset to default Task 1 parameters.');
   }
 
   // ── Restore Custom Datasets & Task State on Page Reload
